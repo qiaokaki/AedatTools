@@ -67,8 +67,8 @@ def ImportAedatDataVersion3(info):
     frameTimeStampFrameEnd      = []
     frameTimeStampExposureStart = []
     frameTimeStampExposureEnd   = []
-    frameColorChannels			  = []
-    frameColorFilter			  = []
+    frameColorChannels              = []
+    frameColorFilter              = []
     frameRoiId                  = []
     frameXLength                = []
     frameYLength                = []
@@ -91,7 +91,7 @@ def ImportAedatDataVersion3(info):
     sampleValid      = []
     sampleTimeStamp  = []
     sampleSampleType = []
-    sampleSample		 = []
+    sampleSample         = []
 
     earNumEvents = []
     earValid     = []
@@ -122,7 +122,7 @@ def ImportAedatDataVersion3(info):
             break
         packetPointers[packetCount] = info['fileHandle'].tell - 28
         if mod(packetCount, 100) == 0 :
-            print 'packet: %d; file position: %d MB' % (packetCount, math.floor(info['fileHandle'].tell / 1000000))         
+            print 'packet: %d; file position: %d MB' % (packetCount, math.floor(info['fileHandle'].tell / 1000000))
         if info['startPacket'] > packetCount :
             # Ignore this packet as its count is too low
             eventSize = struct.unpack('I', header[4:8])[0]
@@ -138,16 +138,19 @@ def ImportAedatDataVersion3(info):
             # Read the full packet
             numBytesInPacket = eventNumber * eventSize
             data = info['fileHandle'].read(numBytesInPacket)
-        	   # Find the first timestamp and check the timing constraints
+               # Find the first timestamp and check the timing constraints
             packetTimestampOffset = eventTsOverflow << 31;
-            mainTimeStamp = struct.unpack('i', header[eventTsOffset : eventTsOffset + 4])[0] + packetTimestampOffset
-            if info['startTime'] <= mainTimeStamp and mainTimeStamp <= info['endTime'] :
-        			eventType = struct.unpack('h', header[0:2])[0]
-        			packetTypes(packetCount) = eventType
-        			
-        			#eventSource = struct.unpack('h', [header[2:4])[0] # Multiple sources not handled yet
+            mainTimeStamp = struct.unpack('i', header[eventTsOffset \
+                                                    : eventTsOffset + 4])[0] \
+                                                    + packetTimestampOffset
+            if info['startTime'] <= mainTimeStamp \
+                and mainTimeStamp <= info['endTime']:
+                eventType = struct.unpack('h', header[0:2])[0]
+                packetTypes(packetCount) = eventType
+                    
+                #eventSource = struct.unpack('h', [header[2:4])[0] # Multiple sources not handled yet
         
-        			# Handle the packet types individually:
+                # Handle the packet types individually:
 
             
         
@@ -163,10 +166,10 @@ def ImportAedatDataVersion3(info):
                             specialNumEvents = specialNumEvents + 1
                             specialAddress.append(data[dataPointer] >> 1)
                             specialTimeStamp.append(struct.unpack('I', data[dataPointer + 4:dataPointer + 8])[0])
-						specialValid(specialNumEvents) = data[dataPointer] % 2) == 1 # Pick off the first bit
-						specialTimeStamp(specialNumEvents) = packetTimestampOffset + uint64(typecast(data(dataPointer + 4 : dataPointer + 7), 'int32'));
-						specialAddress(specialNumEvents) = data[dataPointer] >> 1
-					end
+                        specialValid(specialNumEvents) = data[dataPointer] % 2) == 1 # Pick off the first bit
+                        specialTimeStamp(specialNumEvents) = packetTimestampOffset + uint64(typecast(data(dataPointer + 4 : dataPointer + 7), 'int32'));
+                        specialAddress(specialNumEvents) = data[dataPointer] >> 1
+                    end
                             
                 # Polarity events                
                 elif(eventType == 1):  
@@ -190,9 +193,9 @@ def ImportAedatDataVersion3(info):
                             ts_end_frame = struct.unpack('I',data[dataPointer+8:dataPointer+12])[0]
                             ts_start_exposure = struct.unpack('I',data[dataPointer+12:dataPointer+16])[0]
                             ts_end_exposure = struct.unpack('I',data[dataPointer+16:dataPointer+20])[0]
-                            length_x = struct.unpack('I',data[dataPointer+20:dataPointer+24])[0]        
+                            length_x = struct.unpack('I',data[dataPointer+20:dataPointer+24])[0]
                             length_y = struct.unpack('I',data[dataPointer+24:dataPointer+28])[0]
-                            pos_x = struct.unpack('I',data[dataPointer+28:dataPointer+32])[0]  
+                            pos_x = struct.unpack('I',data[dataPointer+28:dataPointer+32])[0]
                             pos_y = struct.unpack('I',data[dataPointer+32:dataPointer+36])[0]
                             bin_frame = data[dataPointer+36:dataPointer+36+(length_x*length_y*2)]
                             frame = struct.unpack(str(length_x*length_y)+'H',bin_frame)

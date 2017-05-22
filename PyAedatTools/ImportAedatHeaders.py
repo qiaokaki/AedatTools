@@ -12,11 +12,9 @@ http://inilabs.com/support/software/fileformat/
     structure.
 """
 
-from snntoolbox.io_utils.AedatTools.ImportAedatBasicSourceName import \
-    import_aedat_basic_source_name
+from PyAedatTools.ImportAedatBasicSourceName import ImportAedatBasicSourceName 
 
-
-def import_aedat_headers(info):
+def ImportAedatHeaders(info):
     # Start from the beginning of the file (should not be necessary)
     """
 
@@ -40,7 +38,7 @@ def import_aedat_headers(info):
 
     # Assume the format version is 1 unless a header of the version number is
     # found
-    info['formatVersion'] = 1
+    info['fileFormat'] = 1
 
     # Read the first character
     is_comment = '#' in str(info['fileHandle'].read(1))
@@ -50,7 +48,7 @@ def import_aedat_headers(info):
         line = info['fileHandle'].readline().decode('utf-8')
         # File format
         if line[: 8] == '!AER-DAT':
-            info['formatVersion'] = int(line[8: -4])
+            info['fileFormat'] = int(line[8: -4])
 
         # Pick out the source
         # Version 2.0 encodes it like this:
@@ -58,7 +56,7 @@ def import_aedat_headers(info):
             # Ignore everything the class path and only use what follows the
             # final dot
             start_prefix = line.rfind('.')
-            info['sourceFromFile'] = import_aedat_basic_source_name(
+            info['sourceFromFile'] = ImportAedatBasicSourceName(
                 line[start_prefix + 1:])
         # Version 3.0 encodes it like this
         # The following ignores any trace of previous sources

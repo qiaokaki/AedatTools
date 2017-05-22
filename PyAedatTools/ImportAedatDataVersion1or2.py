@@ -16,7 +16,7 @@ def ImportAedatDataVersion1or2(info):
     """
 
     # The formatVersion dictates whether there are 6 or 8 bytes per event.
-    if info['formatVersion'] == 1:
+    if info['fileFormat'] == 1:
         numBytesPerEvent = 6
         addrPrecision = np.dtype([('addr', '>u2'), ('ts', '>u4')])
     else:
@@ -129,21 +129,11 @@ def ImportAedatDataVersion1or2(info):
         """
         
         apsOrImuMask = int('80000000', 16)
-        apsOrImuLogical = np.bitwiseAnd(allAddr, apsOrImuMask)
-        ImuOrPolarityMask = int('800', 16)
-        ImuOrPolarityLogical = np.bitwiseand(allAddr, ImuOrPolarityMask)
+        apsOrImuLogical = np.bitwise_and(allAddr, apsOrImuMask)
+        apsOrImuLogical = apsOrImuLogical.astype(bool)
         signalOrSpecialMask = int('400', 16)
-        signalOrSpecialLogical = np.bitwiseAnd(allAddr, signalOrSpecialMask)
-        
-        # Note: the following logicals don't result in booleans, or even 0s and 1, 
-        # because I haven't applied a bitshift; but it doesn't matter
-        frameLogical = np.logicalAnd(apsOrImuLogical,
-                                     np.logicalNot(ImuOrPolarityLogical))
-        imuLogical = np.logicalAnd(apsOrImuLogical, ImuOrPolarityLogical)        
-        polarityLogical = np.logicalAnd(np.logicalNot(apsOrImuLogical),
-                                      np.logicalNot(signalOrSpecialLogical))
-        specialLogical = np.logicalAnd(signalOrSpecialLogical,
-                                       np.logicalNot(apsOrImuLogical))
+        signalOrSpecialLogical = np.bitwise_and(allAddr, signalOrSpecialMask)
+        signalOrSpecialLogical = signalOrSpecialLogical.astype(bool)
 
         # These masks are used for both frames and polarity events, so are defined
         # outside of the following if statement
@@ -153,14 +143,18 @@ def ImportAedatDataVersion1or2(info):
         xShiftBits = 12        
         polarityMask = int('00000800', 16)
         
+        specialLogical = np.logical_and(signalOrSpecialLogical,
+                                       np.logical_not(apsOrImuLogical))
     # Special events
         if ('dataTypes' not in info or 'special' in info['dataTypes']) \
                  and any(specialLogical):
             output['data']['special'] = {}
             output['data']['special']['timeStamp'] = allTs(specialLogical) 
             # No need to create address field, since there is only one type of special event
+        del specialLogical
         
-        
+        polarityLogical = np.logical_and(np.logical_not(apsOrImuLogical),
+                                      np.logical_not(signalOrSpecialLogical))
         # Polarity(DVS) events
         if ('dataTypes' not in info or 'polarity' in info['dataTypes']) \
                 and any(polarityLogical):
@@ -168,40 +162,48 @@ def ImportAedatDataVersion1or2(info):
             output['data']['polarity'] = {}
             output['data']['polarity']['timeStamp'] = allTs[polarityLogical]
             # Y addresses
-            output['data']['polarity']['y'] = np.array(np.rightShift(
-                np.bitwiseAnd(polarityData, yMask), yShiftBits), 'uint16')
+            output['data']['polarity']['y'] = np.array(np.right_shift( \
+                np.bitwise_and(polarityData, yMask), yShiftBits), 'uint16')
             # X addresses
-            output['data']['polarity']['x'] = np.array(np.rightShift(
-                np.bitwiseAnd(polarityData, xMask), xShiftBits), 'uint16')
+            output['data']['polarity']['x'] = np.array(np.right_shift( \
+                np.bitwise_and(polarityData, xMask), xShiftBits), 'uint16')
             # Polarity bit
             
             # Note: no need for a bitshift here, since its converted to boolean anyway
-            output['data']['polarity']['polarity'] = np.array(
-            np.bitwiseAnd(polarityData, polarityMask), 'bool')
+            output['data']['polarity']['polarity'] = np.array( \
+            np.bitwise_and(polarityData, polarityMask), 'bool')
+            del polarityData
+        del polarityLogical
 
-        # Frame events
+
+        ImuOrPolarityMask = int('800', 16)
+        ImuOrPolarityLogical = np.bitwise_and(allAddr, ImuOrPolarityMask)
+        ImuOrPolarityLogical = ImuOrPolarityLogical.astype(bool)
+        frameLogical = np.logical_and(apsOrImuLogical,
+                                     np.logical_not(ImuOrPolarityLogical))
+       # Frame events
         if ('dataTypes' not in info or 'frame' in info['dataTypes']) \
                 and any(frameLogical):
             frameSampleMask = int('1111111111', 2) 
             
-            frameData = allAddr(frameLogical) 
-            frameTs = allTs(frameLogical) 
+            frameData = allAddr[frameLogical] 
+            frameTs = allTs[frameLogical] 
     
             # Note: uses int16 instead of uint16 to allow for a subtraction operation below to look for discontinuities
-            frameX = np.array(np.rightShift(np.bitwiseAnd(frameData, xMask), xShiftBits), 'int16') 
-            frameY = np.array(np.rightShift(np.bitwiseAnd(frameData, yMask), yShiftBits), 'int16') 
-            frameSample = np.array(np.bitwiseAnd(frameData, frameSampleMask), 'uint16') 
+            frameX = np.array(np.right_shift(np.bitwise_and(frameData, xMask), xShiftBits), 'int16') 
+            frameY = np.array(np.right_shift(np.bitwise_and(frameData, yMask), yShiftBits), 'int16') 
+            frameSample = np.array(np.bitwise_and(frameData, frameSampleMask), 'uint16') 
             # Note: no need for a bitshift here, since it's converted to boolean anyway
-            frameSignal = np.array(np.bitwiseAnd(frameData, signalOrSpecialMask), 'bool') 
+            frameSignal = np.array(np.bitwise_and(frameData, signalOrSpecialMask), 'bool') 
             
              # In general the ramp of address values could be in either
              # direction and either x or y could be the outer(inner) loop
              # Search for a discontinuity in both x and y simultaneously
             frameXDiscont = abs(frameX[1 : ] - frameX[0 : -1]) > 1 
-            frameYDiscont = abs(frameY[1 : ] - frameY[0 : -1]) > 1 
-            frameStarts = np.concatenate([[0],  
-                                          np.where(np.bitwiseand(frameXDiscont, frameYDiscont) + 1),  
-                                          frameData.size])
+            frameYDiscont = abs(frameY[1 : ] - frameY[0 : -1]) > 1
+            frameDiscontIndex = np.where(np.logical_and(frameXDiscont, frameYDiscont))
+            frameDiscontIndex = frameDiscontIndex[0] # The last line produces a tuple - we only want the array
+            frameStarts = np.concatenate([[0], frameDiscontIndex  + 1, [frameData.size]])
              # Now we have the indices of the first sample in each frame, plus
              # an additional index just beyond the end of the array
             numFrames = frameStarts.size - 1 
@@ -221,7 +223,7 @@ def ImportAedatDataVersion1or2(info):
                 # implement a check here to see that that's true, but I haven't
                 # done so; rather I just take the first value
                 output['data']['frame']['reset'][frameIndex] \
-                    = not frameSignal(frameStarts[frameIndex])  
+                    = not frameSignal[frameStarts[frameIndex]]  
                 
                  # in aedat 2 format we don't have the four timestamps of aedat 3 format
                  # We expect to find all the same timestamps  
@@ -249,8 +251,8 @@ def ImportAedatDataVersion1or2(info):
                 
                  # first create a temporary array - there is no concept of
                  # colour channels in aedat2
-                tempSamples = np.zeros(output['data']['frame']['yLength'][frameIndex], 
-                                    output['data']['frame']['xLength'][frameIndex], 'uint16') 
+                tempSamples = np.zeros((output['data']['frame']['yLength'][frameIndex], \
+                                    output['data']['frame']['xLength'][frameIndex]), dtype='uint16') 
                 for sampleIndex in range(frameStarts[frameIndex], frameStarts[frameIndex + 1]):
                     tempSamples[frameY[sampleIndex] \
                                     - output['data']['frame']['yPosition'][frameIndex], \
@@ -325,7 +327,7 @@ def ImportAedatDataVersion1or2(info):
                 output['data']['frame']['samples'] \
                     = output['data']['frame']['samples'][1 : frameCount]
                 del output['data']['frame']['reset']   # reset is no longer needed
-    
+        del frameLogical
     
     
         # IMU events
@@ -333,6 +335,7 @@ def ImportAedatDataVersion1or2(info):
         # a single sample; the following code recomposes these
         # 7 words are sent in series, these being 3 axes for accel, temperature, and 3 axes for gyro
 
+        imuLogical = np.logical_and(apsOrImuLogical, ImuOrPolarityLogical)
         if ('dataTypes' not in info or 'imu6' in info['dataTypes']) \
                 and any(imuLogical):
             output['data']['imu6'] = {}
@@ -353,7 +356,7 @@ def ImportAedatDataVersion1or2(info):
     
             imuDataMask = int('0FFFF000', 16)
             imuDataShiftBits = 12
-            rawData = np.float32(np.rightbitshift(np.bitwiseand(allAddr[imuLogical], imuDataMask), imuDataShiftBits))
+            rawData = np.float32(np.rightbitshift(np.bitwise_and(allAddr[imuLogical], imuDataMask), imuDataShiftBits))
                         
             output['data']['imu6']['accelX']        = rawData[1 : : 7] * accelScale    
             output['data']['imu6']['accelY']        = rawData[1 : : 7] * accelScale    
@@ -362,8 +365,7 @@ def ImportAedatDataVersion1or2(info):
             output['data']['imu6']['gyroX']         = rawData[1 : : 7] * gyroScale  
             output['data']['imu6']['gyroY']         = rawData[1 : : 7] * gyroScale
             output['data']['imu6']['gyroZ']         = rawData[1 : : 7] * gyroScale
-        
-    
+        del imuLogical
 
     # If you want to do chip-specific address shifts or subtractions,
     # this would be the place to do it.

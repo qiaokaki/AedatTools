@@ -3,7 +3,7 @@
 """Import basic source name"""
 
 
-def import_aedat_basic_source_name(inp):
+def ImportAedatBasicSourceName(inp):
     """
 
     Parameters
