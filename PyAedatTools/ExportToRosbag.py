@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+# Params
+bagFilePath = /media/sim/Windows/2017_05_22_Cracks/Calib.bag
+
 import numpy as np
 import cv2
 
@@ -12,20 +15,6 @@ from cv_bridge import CvBridge, CvBridgeError
 import os.path
 import rospy
 
-def make_pose_msg(position, orientation, timestamp):
-    pose_msg = PoseStamped()
-    pose_msg.header.stamp = timestamp
-    pose_msg.header.frame_id = 'train'
-    pose_msg.pose.position.x = position[0]
-    pose_msg.pose.position.y = position[1]
-    pose_msg.pose.position.z = position[2]
-    pose_msg.pose.orientation.x = orientation[0]
-    pose_msg.pose.orientation.y = orientation[1]
-    pose_msg.pose.orientation.z = orientation[2]
-    pose_msg.pose.orientation.w = orientation[3]
-    return pose_msg    
-
-
 def make_event(x, y, ts, pol):
     e = Event()
     e.x = x
@@ -34,20 +23,8 @@ def make_event(x, y, ts, pol):
     e.polarity = pol
     return e
     
-
-
 # Open bag
-bag = rosbag.Bag('output/SmallSectionFromCam1Lower.bag', 'w')
-
-#%% Odometry
-odometry = np.loadtxt('output/odometry.txt')
-for stamp_x in odometry:
-    stamp, x = stamp_x
-    t = rospy.Time(secs=stamp/1000000.)
-    #print t.to_sec()
-    pos = [x/1000.0, 0., 0.]
-    quat = [0., 0., 0., 1.]
-    bag.write(topic='/dvs/pose', msg=make_pose_msg(pos, quat, t), t=t)   
+bag = rosbag.Bag(bagFilePath, 'w')
 
 #%% Images
 
