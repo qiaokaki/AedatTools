@@ -172,10 +172,12 @@ end
 numEventsToRead = info.endEvent - info.startEvent + 1;
 
 % Read addresses
+disp('Reading addresses ...')
 fseek(info.fileHandle, info.beginningOfDataPointer + numBytesPerEvent * info.startEvent, 'bof'); 
 allAddr = uint32(fread(info.fileHandle, numEventsToRead, addrPrecision, 4, 'b'));
 
 % Read timestamps
+disp('Reading timestamps ...')
 fseek(info.fileHandle, info.beginningOfDataPointer + numBytesPerEvent * info.startEvent + numBytesPerAddress, 'bof');
 allTs = uint32(fread(info.fileHandle, numEventsToRead, addrPrecision, numBytesPerAddress, 'b'));
 
@@ -184,12 +186,14 @@ allTs = uint32(fread(info.fileHandle, numEventsToRead, addrPrecision, numBytesPe
 % non-monotonic timestamps. 
 
 if isfield(info, 'startTime')
+    disp('Trimming to start time ...')
 	tempIndex = allTs >= info.startTime * 1e6;
 	allAddr = allAddr(tempIndex);
 	allTs	= allTs(tempIndex);
 end
 
 if isfield(info, 'endTime')
+    disp('Trimming to end time ...')    
 	tempIndex = allTs <= info.endTime * 1e6;
 	allAddr = allAddr(tempIndex);
 	allTs	= allTs(tempIndex);
@@ -290,6 +294,7 @@ elseif strfind(info.source, 'Davis')
 	% bit 32 (1-based) being 1 indicates an APS sample
 	% bit 11 (1-based) being 1 indicates a special event 
 	% bits 11 and 32 (1-based) both being zero signals a polarity event
+    disp('Constructing logical indices for event types ...')
 	apsOrImuMask = hex2dec ('80000000');
 	apsOrImuLogical = bitand(allAddr, apsOrImuMask);
 	ImuOrPolarityMask = hex2dec ('800');
@@ -310,12 +315,14 @@ elseif strfind(info.source, 'Davis')
 
 	% Special events
 	if (~isfield(info, 'dataTypes') || any(cellfun(cellFind('special'), info.dataTypes))) && any(specialLogical)
-		output.data.special.timeStamp = allTs(specialLogical);
+		disp('Importing special events ...')
+        output.data.special.timeStamp = allTs(specialLogical);
 		% No need to create address field, since there is only one type of special event
 	end
 	
 	% Polarity (DVS) events
 	if (~isfield(info, 'dataTypes') || any(cellfun(cellFind('polarity'), info.dataTypes))) && any(polarityLogical)
+		disp('Importing polarity events ...')
 		output.data.polarity.timeStamp = allTs(polarityLogical);
 		% Y addresses
 		output.data.polarity.y = uint16(bitshift(bitand(allAddr(polarityLogical), yMask), -yShiftBits));
@@ -330,6 +337,7 @@ elseif strfind(info.source, 'Davis')
 	% readout ...
 
 	if (~isfield(info, 'dataTypes') || any(cellfun(cellFind('frame'), info.dataTypes))) && any(frameLogical)
+		disp('Importing frames ...')
 		% These two are defined in the format, but not actually necessary to establish the frame boundaries
 		% frameLastEventMask = hex2dec ('FFFFFC00');
 		% frameLastEvent = hex2dec ('80000000'); %starts with biggest address
@@ -402,9 +410,10 @@ elseif strfind(info.source, 'Davis')
 		end	
 		% By default, subtract the reset read 
 		if ~isfield(info, 'subtractResetRead')
-      info.subtractResetRead = true;
-    end
+            info.subtractResetRead = true;
+        end
 		if info.subtractResetRead && isfield(output.data.frame, 'reset')
+            disp('Performing frame subtraction ...')    
 			% Make a second pass through the frames, subtracting reset
 			% reads from signal reads
 			frameCount = 0;
@@ -466,7 +475,7 @@ elseif strfind(info.source, 'Davis')
 		% a single sample; the following code recomposes these
 		% 7 words are sent in series, these being 3 axes for accel, temperature, and 3 axes for gyro
 	if (~isfield(info, 'dataTypes') || any(cellfun(cellFind('imu6'), info.dataTypes))) && any(imuLogical)
-
+		disp('Importing imu6 events ...')
 		if mod(nnz(imuLogical), 7) > 0 
 			error('The number of IMU samples is not divisible by 7, so IMU samples are not interpretable')
 		end
@@ -481,11 +490,8 @@ elseif strfind(info.source, 'Davis')
 
 		imuDataMask = hex2dec('0FFFF000');
 		imuDataShiftBits = 12;
-		rawData = single(bitshift(bitand(allAddr(imuLogical), imuDataMask), -imuDataShiftBits));		
-		
-%		data=typecast(rawdata,'int16'); % cast to signed 16 bit shorts
-%		data=double(data); % cast to double so conversion to g's and deg/s works
-		
+		rawData = single(typecast(bitshift(bitand(allAddr(imuLogical), imuDataMask), -imuDataShiftBits),'int16'));		
+				
 		output.data.imu6.accelX			= rawData(1 : 7 : end) * accelScale;	
 		output.data.imu6.accelY			= rawData(2 : 7 : end) * accelScale;	
 		output.data.imu6.accelZ			= rawData(3 : 7 : end) * accelScale;	
@@ -500,6 +506,8 @@ elseif strfind(info.source, 'Davis')
 	% this would be the place to do it. 
 
 end
+
+disp('Augmenting info ...')
 
 output.info = info;
 
@@ -561,5 +569,8 @@ if isfield(output.data, 'ear')
 		output.info.lastTimeStamp = output.data.ear.timeStamp(end);
 	end
 end
+
+disp('Import finished')
+
 
 
