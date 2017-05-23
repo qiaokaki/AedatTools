@@ -400,7 +400,11 @@ elseif strfind(info.source, 'Davis')
 			end
 			output.data.frame.samples{frameIndex} = tempSamples;
 		end	
-		if isfield(info, 'subtractResetRead') && info.subtractResetRead && isfield(output.data.frame, 'reset')
+		% By default, subtract the reset read 
+		if ~isfield(info, 'subtractResetRead')
+      info.subtractResetRead = true;
+    end
+		if info.subtractResetRead && isfield(output.data.frame, 'reset')
 			% Make a second pass through the frames, subtracting reset
 			% reads from signal reads
 			frameCount = 0;

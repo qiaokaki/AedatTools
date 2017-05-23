@@ -89,15 +89,15 @@ for plotCount = 1 : numPlots
 	% accumulate the array from the event indices, using an increment of 1
 	% for on and a decrement of 1 for off.
     if exist('transpose', 'var') && transpose
-    	arrayLogical = accumarray([input.data.polarity.x(selectedLogical) input.data.polarity.y(selectedLogical)] + 1, input.data.polarity.polarity(selectedLogical) * 2 - 1);
+    	frameFromEvents = accumarray([input.data.polarity.x(selectedLogical) input.data.polarity.y(selectedLogical)] + 1, input.data.polarity.polarity(selectedLogical) * 2 - 1);
     else
-        arrayLogical = accumarray([input.data.polarity.y(selectedLogical) input.data.polarity.x(selectedLogical)] + 1, input.data.polarity.polarity(selectedLogical) * 2 - 1);
+        frameFromEvents = accumarray([input.data.polarity.y(selectedLogical) input.data.polarity.x(selectedLogical)] + 1, input.data.polarity.polarity(selectedLogical) * 2 - 1);
     end
     % Clip the values according to the contrast
-	arrayLogical(arrayLogical > contrast) = contrast;
-	arrayLogical(arrayLogical < - contrast) = -contrast;
-	arrayLogical = arrayLogical + contrast + 1;
-	image(arrayLogical)
+	frameFromEvents(frameFromEvents > contrast) = contrast;
+	frameFromEvents(frameFromEvents < - contrast) = -contrast;
+	frameFromEvents = frameFromEvents + contrast + 1;
+	image(frameFromEvents)
     colormap(redgreencmap(contrast * 2 + 1))
 	axis equal tight
 	if exist('flipVertical', 'var') && flipVertical

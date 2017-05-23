@@ -38,12 +38,12 @@ numPlotsY = ceil(numPlots / numPlotsX);
 
 if strcmpi(distributeBy, 'time')
     if ~exist('minTime', 'var') || (exist('minTime', 'var') && minTime == 0)
-        minTime = min(input.data.frame.timeStampExposureStart);
+        minTime = min(timeStamps);
     else
         minTime = minTime * 1e6;
     end
     if ~exist('maxTime', 'var') || (exist('maxTime', 'var') && maxTime == 0)
-        maxTime = max(input.data.frame.timeStampExposureStart);
+        maxTime = max(timeStamps);
     else
         maxTime = maxTime * 1e6;
     end
