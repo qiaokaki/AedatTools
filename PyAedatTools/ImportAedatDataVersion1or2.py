@@ -399,4 +399,30 @@ def ImportAedatDataVersion1or2(info):
             output['info']['lastTimeStamp'] = \
                 output['data']['polarity']['timeStamp'][-1]
 
+    if 'frame' in output['data']:
+        output['data']['frame']['numEvents'] = \
+            len(output['data']['frame']['timeStampStart'])
+        if output['data']['frame']['timeStampStart'][0] < \
+                output['info']['firstTimeStamp']:
+            output['info']['firstTimeStamp'] = \
+                output['data']['polarity']['timeStampStart'][0]
+        if output['data']['polarity']['timeStampEnd'][-1] > \
+                output['info']['lastTimeStamp']:
+            output['info']['lastTimeStamp'] = \
+                output['data']['polarity']['timeStampEnd'][-1]
+
+    if 'imu6' in output['data']:
+        output['data']['imu6']['numEvents'] = \
+            len(output['data']['imu6']['timeStamp'])
+        if output['data']['imu6']['timeStamp'][0] < \
+                output['info']['firstTimeStamp']:
+            output['info']['firstTimeStamp'] = \
+                output['data']['imu6']['timeStamp'][0]
+        if output['data']['imu6']['timeStamp'][-1] > \
+                output['info']['lastTimeStamp']:
+            output['info']['lastTimeStamp'] = \
+                output['data']['imu6']['timeStamp'][-1]
+
+
+
     return output
