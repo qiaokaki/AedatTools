@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 
 # Params
-bagFilePath = /media/sim/Windows/2017_05_22_Cracks/Calib.bag
+
+import sys
+sys.path.append('/usr/local/lib/python2.7/site-packages')
 
 import numpy as np
 import cv2
@@ -12,16 +14,28 @@ from geometry_msgs.msg import PoseStamped
 from sensor_msgs.msg import CameraInfo
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
-import os.path
+import os.path as ospath
 import rospy
+import scipy.io as sio
 
-def make_event(x, y, ts, pol):
+# bag file name and path will be the same as origin .aedat file, unless overruled
+
+bagFilePath = '/media/sim/Windows/2017_05_22_Cracks/Calib.bag'
+
+
+mat = sio.loadmat('/media/sim/Windows/2017_05_22_Cracks/Calibv7.mat')
+
+def MakeEvent(x, y, ts, pol):
     e = Event()
     e.x = x
     e.y = y
     e.ts = ts
     e.polarity = pol
     return e
+
+def ExportToRosbag(aedat):
+    
+    bagFilePath = ospath.splitext(aedat['info']['filePath'])[0] + '.bag'
     
 # Open bag
 bag = rosbag.Bag(bagFilePath, 'w')

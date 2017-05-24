@@ -9,10 +9,7 @@ import numpy as np
 
 def ImportAedatDataVersion1or2(info):
     """
-
-    Parameters
-    ----------
-    info :
+    Later ;)
     """
 
     # The formatVersion dictates whether there are 6 or 8 bytes per event.
@@ -55,6 +52,7 @@ def ImportAedatDataVersion1or2(info):
     numEventsToRead = int(info['endEvent'] - info['startEvent'] + 1)
 
     # Read events
+    print 'Reading events ...'
     fileHandle.seek(info['beginningOfDataPointer'] + numBytesPerEvent *
                      info['startEvent'])
     allEvents = np.fromfile(fileHandle, addrPrecision, numEventsToRead)
@@ -67,11 +65,13 @@ def ImportAedatDataVersion1or2(info):
     # timestamps.
 
     if 'startTime' in info:
+        print 'Cropping events by time ...'
         tempIndex = np.nonzero(allTs >= info['startTime'] * 1e6)
         allAddr = allAddr[tempIndex]
         allTs = allTs[tempIndex]
 
     if 'endTime' in info:
+        print 'Cropping events by time ...'
         tempIndex = np.nonzero(allTs <= info['endTime'] * 1e6)
         allAddr = allAddr[tempIndex]
         allTs = allTs[tempIndex]
@@ -127,7 +127,8 @@ def ImportAedatDataVersion1or2(info):
         bit 11 (1-based) being 1 indicates a special event 
         bits 11 and 32 (1-based) both being zero signals a polarity event
         """
-        
+
+        print 'Building logical indices by type ...'        
         apsOrImuMask = int('80000000', 16)
         apsOrImuLogical = np.bitwise_and(allAddr, apsOrImuMask)
         apsOrImuLogical = apsOrImuLogical.astype(bool)
@@ -148,6 +149,7 @@ def ImportAedatDataVersion1or2(info):
     # Special events
         if ('dataTypes' not in info or 'special' in info['dataTypes']) \
                  and any(specialLogical):
+            print 'Processing special events ...'
             output['data']['special'] = {}
             output['data']['special']['timeStamp'] = allTs(specialLogical) 
             # No need to create address field, since there is only one type of special event
@@ -158,7 +160,8 @@ def ImportAedatDataVersion1or2(info):
         # Polarity(DVS) events
         if ('dataTypes' not in info or 'polarity' in info['dataTypes']) \
                 and any(polarityLogical):
-            polarityData = allAddr(polarityLogical)         
+            print 'Processing polarity events ...'
+            polarityData = allAddr[polarityLogical]         
             output['data']['polarity'] = {}
             output['data']['polarity']['timeStamp'] = allTs[polarityLogical]
             # Y addresses
@@ -184,6 +187,7 @@ def ImportAedatDataVersion1or2(info):
        # Frame events
         if ('dataTypes' not in info or 'frame' in info['dataTypes']) \
                 and any(frameLogical):
+            print 'Processing frames ...'
             frameSampleMask = int('1111111111', 2) 
             
             frameData = allAddr[frameLogical] 
@@ -211,14 +215,15 @@ def ImportAedatDataVersion1or2(info):
             output['data']['frame']['reset']            = np.zeros(numFrames, 'bool') 
             output['data']['frame']['timeStampStart']   = np.zeros(numFrames, 'uint32') 
             output['data']['frame']['timeStampEnd']     = np.zeros(numFrames, 'uint32')
-            output['data']['frame']['samples']          = np.array(numFrames, 'object') 
+            output['data']['frame']['samples']          = np.empty(numFrames, 'object') 
             output['data']['frame']['xLength']          = np.zeros(numFrames, 'uint16') 
             output['data']['frame']['yLength']          = np.zeros(numFrames, 'uint16') 
             output['data']['frame']['xPosition']        = np.zeros(numFrames, 'uint16') 
             output['data']['frame']['yPosition']        = np.zeros(numFrames, 'uint16') 
             
             for frameIndex in range(0, numFrames) :
-                print 'Processing frame ', frameIndex
+                if frameIndex % 10 == 9:
+                    print 'Processing frame ', frameIndex + 1, ' of ', numFrames
                 # All within a frame should be either reset or signal. I could
                 # implement a check here to see that that's true, but I haven't
                 # done so; rather I just take the first value
@@ -264,21 +269,22 @@ def ImportAedatDataVersion1or2(info):
     
             if 'subtractResetRead' in info and info['subtractResetRead'] \
                     and 'reset' in output['data']['frame']:
-                 # Make a second pass through the frames, subtracting reset
-                 # reads from signal reads
+                # Make a second pass through the frames, subtracting reset
+                # reads from signal reads
                 frameCount = 0
                 for frameIndex in range(0, numFrames):
+                    if frameIndex % 10 == 9:
+                        print 'Performing subtraction on frame ', frameIndex + 1, ' of ', numFrames
                     if output['data']['frame']['reset'][frameIndex]: 
                         resetFrame = output['data']['frame']['samples'][frameIndex] 
                         resetXPosition = output['data']['frame']['xPosition'][frameIndex] 
                         resetYPosition = output['data']['frame']['yPosition'][frameIndex] 
                         resetXLength = output['data']['frame']['xLength'][frameIndex] 
                         resetYLength = output['data']['frame']['yLength'][frameIndex]                     
-                    else:
-                        frameCount = frameCount + 1 
+                    else: 
                          # If a resetFrame has not yet been found, 
                          # push through the signal frame as is
-                        if 'resetFrame' in locals():
+                        if not 'resetFrame' in locals():
                             output['data']['frame']['samples'][frameCount] \
                                 = output['data']['frame']['samples'][frameIndex] 
                         else:
@@ -310,7 +316,7 @@ def ImportAedatDataVersion1or2(info):
                                 = output['data']['frame']['timeStampStart'][frameIndex]  
                             output['data']['frame']['timeStampEnd'][frameCount] \
                                 = output['data']['frame']['timeStampEnd'][frameIndex]                              
-
+                            frameCount = frameCount + 1
                  # Clip the arrays
                 output['data']['frame']['xPosition'] \
                     = output['data']['frame']['xPosition'][0 : frameCount] 
@@ -325,7 +331,7 @@ def ImportAedatDataVersion1or2(info):
                 output['data']['frame']['timeStampEnd'] \
                     = output['data']['frame']['timeStampEnd'][0 : frameCount] 
                 output['data']['frame']['samples'] \
-                    = output['data']['frame']['samples'][1 : frameCount]
+                    = output['data']['frame']['samples'][0 : frameCount]
                 del output['data']['frame']['reset']   # reset is no longer needed
         del frameLogical
     
@@ -338,6 +344,7 @@ def ImportAedatDataVersion1or2(info):
         imuLogical = np.logical_and(apsOrImuLogical, ImuOrPolarityLogical)
         if ('dataTypes' not in info or 'imu6' in info['dataTypes']) \
                 and any(imuLogical):
+            print 'Processing IMU6 events ...'
             output['data']['imu6'] = {}
             output['data']['imu6']['timeStamp'] = allTs[imuLogical]
 
@@ -349,27 +356,31 @@ def ImportAedatDataVersion1or2(info):
                     = output['data']['imu6']['timeStamp'][0 : : 7]
     
             #Conversion factors
-            accelScale = 1/16384
-            gyroScale = 1/131
-            temperatureScale = 1/340
-            temperatureOffset=35
+            accelScale = 1.0/16384
+            gyroScale = 1.0/131
+            temperatureScale = 1.0/340
+            temperatureOffset=35.0
     
             imuDataMask = int('0FFFF000', 16)
             imuDataShiftBits = 12
-            rawData = np.float32(np.rightbitshift(np.bitwise_and(allAddr[imuLogical], imuDataMask), imuDataShiftBits))
+            rawData = np.right_shift(np.bitwise_and(allAddr[imuLogical], imuDataMask), imuDataShiftBits)
+            # This is a uint32 which contains an int16. Need to convert to int16 before converting to float.             
+            rawData = rawData.astype('int16')
+            rawData = rawData.astype('float32')
                         
-            output['data']['imu6']['accelX']        = rawData[1 : : 7] * accelScale    
+            output['data']['imu6']['accelX']        = rawData[0 : : 7] * accelScale    
             output['data']['imu6']['accelY']        = rawData[1 : : 7] * accelScale    
-            output['data']['imu6']['accelZ']        = rawData[1 : : 7] * accelScale    
-            output['data']['imu6']['temperature']   = rawData[1 : : 7] * temperatureScale + temperatureOffset   
-            output['data']['imu6']['gyroX']         = rawData[1 : : 7] * gyroScale  
-            output['data']['imu6']['gyroY']         = rawData[1 : : 7] * gyroScale
-            output['data']['imu6']['gyroZ']         = rawData[1 : : 7] * gyroScale
+            output['data']['imu6']['accelZ']        = rawData[2 : : 7] * accelScale    
+            output['data']['imu6']['temperature']   = rawData[3 : : 7] * temperatureScale + temperatureOffset   
+            output['data']['imu6']['gyroX']         = rawData[4 : : 7] * gyroScale  
+            output['data']['imu6']['gyroY']         = rawData[5 : : 7] * gyroScale
+            output['data']['imu6']['gyroZ']         = rawData[6 : : 7] * gyroScale
         del imuLogical
 
     # If you want to do chip-specific address shifts or subtractions,
     # this would be the place to do it.
 
+    print 'Augmenting info ...'
     output['info'] = info
 
     # calculate numEvents fields  also find first and last timeStamps
