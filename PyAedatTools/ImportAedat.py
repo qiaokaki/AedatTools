@@ -25,5 +25,5 @@ def ImportAedat(args):
         if args['fileFormat'] < 3:
             return ImportAedatDataVersion1or2(args)
         else:
- #           return ImportAedatDataVersion3(args)
-            pass          
+            return ImportAedatDataVersion3(args)
+ 

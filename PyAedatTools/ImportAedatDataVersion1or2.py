@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+# Bodo Rueckhauser contributed the core of this code
+
 """
 Import aedat version 1 or 2.
 """
@@ -355,9 +357,13 @@ def ImportAedatDataVersion1or2(info):
                 output['data']['imu6']['timeStamp'] \
                     = output['data']['imu6']['timeStamp'][0 : : 7]
     
-            #Conversion factors
-            accelScale = 1.0/16384
-            gyroScale = 1.0/131
+            # Conversion factors
+            # Actually these scales depend on the fiull scale value 
+            # with which the IMU is configured.
+            # Here I assume jaer defaults: 1000 deg/s for gyro and 8 g for accel
+            # Given 16 bit samples, this results in the following:
+            accelScale = 1.0/8192 # This gives acceleration in g
+            gyroScale = 1.0/65.535 # This gives angular velocity in deg/s
             temperatureScale = 1.0/340
             temperatureOffset=35.0
     
@@ -405,11 +411,11 @@ def ImportAedatDataVersion1or2(info):
         if output['data']['frame']['timeStampStart'][0] < \
                 output['info']['firstTimeStamp']:
             output['info']['firstTimeStamp'] = \
-                output['data']['polarity']['timeStampStart'][0]
-        if output['data']['polarity']['timeStampEnd'][-1] > \
+                output['data']['frame']['timeStampStart'][0]
+        if output['data']['frame']['timeStampEnd'][-1] > \
                 output['info']['lastTimeStamp']:
             output['info']['lastTimeStamp'] = \
-                output['data']['polarity']['timeStampEnd'][-1]
+                output['data']['frame']['timeStampEnd'][-1]
 
     if 'imu6' in output['data']:
         output['data']['imu6']['numEvents'] = \

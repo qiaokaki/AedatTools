@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+
+# Federico Corradi contributed the first version of this code
 """
 A subfunction of ImportAedat.py 
 Refer to this function for the definition of input/output variables etc
