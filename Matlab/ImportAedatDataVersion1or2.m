@@ -349,7 +349,7 @@ elseif strfind(info.source, 'Davis')
 
 		frameX = uint16(bitshift(bitand(frameData, xMask),-xShiftBits));
 		frameY = uint16(bitshift(bitand(frameData, yMask),-yShiftBits));
-		frameSignal = boolean(bitshift(bitand(frameData, signalOrSpecialMask),-4));
+		frameSignal = boolean(bitshift(bitand(frameData, signalOrSpecialMask), -4));
 		frameSample = uint16(bitand(frameData, frameSampleMask));
 		
 		% In general the ramp of address values could be in either

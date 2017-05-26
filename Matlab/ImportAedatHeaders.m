@@ -110,8 +110,8 @@ while line(1)=='#'
 	% Version 2.0 encodes it like this:
 	if strncmp(line, 'AEChip: ', 8)
 		% Ignore everything the class path and only use what follows the final dot 
-		startPrefix = find(line=='.', 1, 'last');
-		info.sourceFromFile = ImportAedatBasicSourceName(line(startPrefix + 1 : end));
+		startPrefix = find(line==':', 1, 'last');
+		info.sourceFromFile = ImportAedatBasicSourceName(line(startPrefix + 2 : end));
 	end
 	% Version 3.0 encodes it like this
 	% The following ignores any trace of previous sources (prefixed with a minus sign)

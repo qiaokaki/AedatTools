@@ -220,8 +220,10 @@ if info.fileHandle == -1
     error('file not found')
 end
 
-% Process the headers
-info = ImportAedatHeaders(info);
+% Process the headers if they haven't been processed already
+if ~isfield(info, 'packetPointers')
+    info = ImportAedatHeaders(info);
+end
 
 % Process the data - different subfunctions handle fileFormat 2 vs 3
 if info.fileFormat < 3

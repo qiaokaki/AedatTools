@@ -173,12 +173,18 @@ end
 
 packetCount = 0;
 
-if info.endPacket < inf
-	packetTypes = ones(info.endPacket, 1, 'uint16');
-	packetPointers = zeros(info.endPacket, 1, 'uint64');
+if isfield(info, 'packetPointers')
+	packetTypes = info.packetTypes;
+	packetPointers = info.packetPointers;
+	packetTimeStamps = info.packetTimeStamps;
+elseif info.endPacket < inf
+    packetTypes = ones(info.endPacket, 1, 'uint16');
+    packetPointers = zeros(info.endPacket, 1, 'uint64');
+    packetTimeStamps = zeros(info.endPacket, 1, 'uint64');
 else
-	packetTypes = ones(1000, 1, 'uint16');
-	packetPointers = zeros(1000, 1, 'uint64');
+    packetTypes = ones(1000, 1, 'uint16');
+    packetPointers = zeros(1000, 1, 'uint64');
+    packetTimeStamps = zeros(1000, 1, 'uint64');
 end
 
 % Create structures to hold the output data
@@ -226,8 +232,23 @@ cellFind = @(string)(@(cellContents)(strcmp(string, cellContents)));
 % Go back to the beginning of the data
 fseek(info.fileHandle, info.beginningOfDataPointer, 'bof');
 
+% If the file has been indexed or partially indexed, and there is a
+% startPacket or startTime parameter, then jump ahead to the right place
+if isfield(info, 'packetPointers') 
+    if info.startPacket > 1 
+        
+    elseif info.startTime > 0
+        targetPacketIndex = find(info.packetTimeStamps < info.startTime * 1e6, 1, 'last');
+        if ~isempty(targetPacketIndex)
+            fseek(info.fileHandle, info.packetPointers(targetPacketIndex), 'bof');
+            packetCount = targetPacketIndex - 1;
+        end
+    end
+end
+
 while true % implement the exit conditions inside the loop - allows to distinguish between different types of exit
-	% Read the header of the next packet
+%% Headers
+    % Read the header of the next packet
 	header = uint8(fread(info.fileHandle, 28));
 	if feof(info.fileHandle)
 		info.numPackets = packetCount;
@@ -238,6 +259,7 @@ while true % implement the exit conditions inside the loop - allows to distingui
 		% Double the size of packet index arrays as necessary
 		packetTypes		= [packetTypes;		ones(packetCount, 1, 'uint16') * 32768];
 		packetPointers	= [packetPointers;	zeros(packetCount, 1, 'uint64')];
+		packetTimeStamps	= [packetTimeStamps;	zeros(packetCount, 1, 'uint64')];
 	end
 	packetPointers(packetCount) = ftell(info.fileHandle) - 28;
 	if mod(packetCount, 100) == 0
@@ -259,10 +281,10 @@ while true % implement the exit conditions inside the loop - allows to distingui
 		numBytesInPacket = eventNumber * eventSize;
 		data = uint8(fread(info.fileHandle, numBytesInPacket));
 		% Find the first timestamp and check the timing constraints
-		packetTimestampOffset = uint64(eventTsOverflow) * uint64(2^31);
-		mainTimeStamp = uint64(typecast(data(eventTsOffset + 1 : eventTsOffset + 4), 'int32')) + packetTimestampOffset;
-
-            
+		packetTimeStampOffset = uint64(eventTsOverflow) * uint64(2^31);
+		mainTimeStamp = uint64(typecast(data(eventTsOffset + 1 : eventTsOffset + 4), 'int32')) + packetTimeStampOffset;
+     	packetTimeStamps(packetCount) = mainTimeStamp;
+           
         if mainTimeStamp > info.endTime * 1e6 && ...
                 mainTimeStamp ~= hex2dec('7FFFFFFF') % This may be a timestamp reset - don't let it stop the import
             % Naively assume that the packets are all ordered correctly and finish
@@ -275,254 +297,315 @@ while true % implement the exit conditions inside the loop - allows to distingui
 			
 			%eventSource = typecast(data(3:4), 'int16'); % Multiple sources not handled yet
 
-			% Handle the packet types individually:
-			
-			% Special events
-			if eventType == 0 
-				if ~isfield(info, 'dataTypes') || any(cellfun(cellFind('special'), info.dataTypes))
-					% First check if the array is big enough
-					currentLength = length(specialValid);
-					if currentLength == 0
-						specialValid		= false(eventNumber, 1);
-						specialTimeStamp	= uint64(zeros(eventNumber, 1));
-						specialAddress		= uint32(zeros(eventNumber, 1));
-					else	
-						while eventNumber > currentLength - specialNumEvents
-							specialValid		= [specialValid;		false(currentLength, 1)];
-							specialTimeStamp	= [specialTimeStamp;	uint64(zeros(currentLength, 1))];
-							specialAddress		= [specialAddress;		uint32(zeros(currentLength, 1))];
-							currentLength = length(specialValid);
-							%disp(['Special array resized to ' num2str(currentLength)])
-						end
-					end
-					% Iterate through the events, converting the data and
-					% populating the arrays
-					for dataPointer = 1 : eventSize : numBytesInPacket % This points to the first byte for each event
-						specialNumEvents = specialNumEvents + 1;
-						specialValid(specialNumEvents) = mod(data(dataPointer), 2) == 1; %Pick off the first bit
-						specialTimeStamp(specialNumEvents) = packetTimestampOffset + uint64(typecast(data(dataPointer + 4 : dataPointer + 7), 'int32'));
-						specialAddress(specialNumEvents) = uint8(bitshift(bitand(data(dataPointer), specialDataMask), -specialDataShiftBits));
-					end
-				end
-			% Polarity events                
-			elseif eventType == 1  
-				if ~isfield(info, 'dataTypes') || any(cellfun(cellFind('polarity'), info.dataTypes))
-					% First check if the array is big enough
-					currentLength = length(polarityValid);
-					if currentLength == 0 
-						polarityValid		= false(eventNumber, 1);
-						polarityTimeStamp	= uint64(zeros(eventNumber, 1));
-						polarityX			= uint16(zeros(eventNumber, 1));
-						polarityY			= uint16(zeros(eventNumber, 1));
-						polarityPolarity	= false(eventNumber, 1);
-					else	
-						while eventNumber > currentLength - polarityNumEvents
-							polarityValid		= [polarityValid;		false(currentLength, 1)];
-							polarityTimeStamp	= [polarityTimeStamp;	uint64(zeros(currentLength, 1))];
-							polarityX			= [polarityX;			uint16(zeros(currentLength, 1))];
-							polarityY			= [polarityY;			uint16(zeros(currentLength, 1))];
-							polarityPolarity	= [polarityPolarity;	false(currentLength, 1)];
-							currentLength = length(polarityValid);
-							%disp(['Polarity array resized to ' num2str(currentLength)])
-						end
-					end
-					% Matricise computation on a packet?
-					dataMatrix = reshape(data, [eventSize, eventNumber]);
-					dataTempTimeStamp = dataMatrix(5:8, :);
-					polarityTimeStamp(polarityNumEvents + (1 : eventNumber)) = packetTimestampOffset + uint64(typecast(dataTempTimeStamp(:), 'int32'));
-					dataTempAddress = dataMatrix(1:4, :);
-					dataTempAddress = typecast(dataTempAddress(:), 'uint32');
-					polarityValid(polarityNumEvents + (1 : eventNumber)) = mod(dataTempAddress, 2) == 1; % Pick off the first bit
-					polarityPolarity(polarityNumEvents + (1 : eventNumber)) = mod(floor(dataTempAddress / 2), 2) == 1; % Pick out the second bit
-					polarityY(polarityNumEvents + (1 : eventNumber)) = uint16(bitshift(bitand(dataTempAddress, polarityYMask), -polarityYShiftBits));
-					polarityX(polarityNumEvents + (1 : eventNumber)) = uint16(bitshift(bitand(dataTempAddress, polarityXMask), -polarityXShiftBits));
-					polarityNumEvents = polarityNumEvents + eventNumber;
-					
-%{					
-					% Iterate through the events, converting the data and
-					% populating the arrays
-					for dataPointer = 1 : eventSize : numBytesInPacket % This points to the first byte for each event
-						polarityNumEvents = polarityNumEvents + 1;
-						polarityValid(polarityNumEvents) = mod(data(dataPointer), 2) == 1; % Pick off the first bit
-						polarityTimeStamp(polarityNumEvents) = packetTimestampOffset + uint64(typecast(data(dataPointer + 4 : dataPointer + 7), 'int32'));
-						polarityData = typecast(data(dataPointer : dataPointer + 3), 'uint32');
-						polarityY(polarityNumEvents) = uint16(bitshift(bitand(polarityData, polarityYMask), -polarityYShiftBits));
-						polarityX(polarityNumEvents) = uint16(bitshift(bitand(polarityData, polarityXMask), -polarityXShiftBits));
-					end
-%}
-				end
-			elseif eventType == 2
-				if ~isfield(info, 'dataTypes') || any(cellfun(cellFind('frame'), info.dataTypes))
-					% First check if the array is big enough
-					currentLength = length(frameValid);
-					if currentLength == 0
-						frameValid					= false(eventNumber, 1);
-						frameColorChannels			= uint8(zeros(eventNumber, 1));
-						frameColorFilter			= uint8(zeros(eventNumber, 1));
-						frameRoiId					= uint8(zeros(eventNumber, 1));
-						frameTimeStampFrameStart	= uint64(zeros(eventNumber, 1));
-						frameTimeStampFrameEnd		= uint64(zeros(eventNumber, 1));
-						frameTimeStampExposureStart = uint64(zeros(eventNumber, 1));
-						frameTimeStampExposureEnd	= uint64(zeros(eventNumber, 1));
-						frameXLength				= uint16(zeros(eventNumber, 1));
-						frameYLength				= uint16(zeros(eventNumber, 1));
-						frameXPosition				= uint16(zeros(eventNumber, 1));
-						frameYPosition				= uint16(zeros(eventNumber, 1));
-						frameSamples				= cell(eventNumber, 1);
-					else	
-						while eventNumber > currentLength - frameNumEvents
-							frameValid					= [frameValid; false(eventNumber, 1)];
-							frameColorChannels			= [frameColorChannels;			uint8(zeros(currentLength, 1))];
-							frameColorFilter			= [frameColorFilter;			uint8(zeros(currentLength, 1))];
-							frameRoiId					= [frameRoiId;					uint8(zeros(currentLength, 1))];
-							frameTimeStampFrameStart	= [frameTimeStampFrameStart;	uint64(zeros(currentLength, 1))];
-							frameTimeStampFrameEnd		= [frameTimeStampFrameEnd;		uint64(zeros(currentLength, 1))];
-							frameTimeStampExposureStart = [frameTimeStampExposureStart; uint64(zeros(currentLength, 1))];
-							frameTimeStampExposureEnd	= [frameTimeStampExposureEnd;	uint64(zeros(currentLength, 1))];
-							frameXLength				= [frameXLength;				uint16(zeros(currentLength, 1))];
-							frameYLength				= [frameYLength;				uint16(zeros(currentLength, 1))];
-							frameXPosition				= [frameXPosition;				uint16(zeros(currentLength, 1))];
-							frameYPosition				= [frameYPosition;				uint16(zeros(currentLength, 1))];
-							frameSamples				= [frameSamples;				cell(currentLength, 1)];
-							currentLength = length(frameValid);
-							%disp(['Frame array resized to ' num2str(currentLength)])
-						end
-					end					
+            if ~isfield(info, 'noData') || ~info.noData
+    			% Handle the packet types individually:
+    %% Special events
+                if eventType == 0 
+                    if ~isfield(info, 'dataTypes') || any(cellfun(cellFind('special'), info.dataTypes))
+                        % First check if the array is big enough
+                        currentLength = length(specialValid);
+                        if currentLength == 0
+                            specialValid		= false(eventNumber, 1);
+                            specialTimeStamp	= uint64(zeros(eventNumber, 1));
+                            specialAddress		= uint32(zeros(eventNumber, 1));
+                        else	
+                            while eventNumber > currentLength - specialNumEvents
+                                specialValid		= [specialValid;		false(currentLength, 1)];
+                                specialTimeStamp	= [specialTimeStamp;	uint64(zeros(currentLength, 1))];
+                                specialAddress		= [specialAddress;		uint32(zeros(currentLength, 1))];
+                                currentLength = length(specialValid);
+                                %disp(['Special array resized to ' num2str(currentLength)])
+                            end
+                        end
+                        % Iterate through the events, converting the data and
+                        % populating the arrays
+                        for dataPointer = 1 : eventSize : numBytesInPacket % This points to the first byte for each event
+                            specialNumEvents = specialNumEvents + 1;
+                            specialValid(specialNumEvents) = mod(data(dataPointer), 2) == 1; %Pick off the first bit
+                            specialTimeStamp(specialNumEvents) = packetTimeStampOffset + uint64(typecast(data(dataPointer + 4 : dataPointer + 7), 'int32'));
+                            specialAddress(specialNumEvents) = uint8(bitshift(bitand(data(dataPointer), specialDataMask), -specialDataShiftBits));
+                        end
+                    end
+    %% Polarity events
+                elseif eventType == 1  
+                    if ~isfield(info, 'dataTypes') || any(cellfun(cellFind('polarity'), info.dataTypes))
+                        % First check if the array is big enough
+                        currentLength = length(polarityValid);
+                        if currentLength == 0 
+                            polarityValid		= false(eventNumber, 1);
+                            polarityTimeStamp	= uint64(zeros(eventNumber, 1));
+                            polarityX			= uint16(zeros(eventNumber, 1));
+                            polarityY			= uint16(zeros(eventNumber, 1));
+                            polarityPolarity	= false(eventNumber, 1);
+                        else	
+                            while eventNumber > currentLength - polarityNumEvents
+                                polarityValid		= [polarityValid;		false(currentLength, 1)];
+                                polarityTimeStamp	= [polarityTimeStamp;	uint64(zeros(currentLength, 1))];
+                                polarityX			= [polarityX;			uint16(zeros(currentLength, 1))];
+                                polarityY			= [polarityY;			uint16(zeros(currentLength, 1))];
+                                polarityPolarity	= [polarityPolarity;	false(currentLength, 1)];
+                                currentLength = length(polarityValid);
+                                %disp(['Polarity array resized to ' num2str(currentLength)])
+                            end
+                        end
+                        % Matricise computation on a packet?
+                        dataMatrix = reshape(data, [eventSize, eventNumber]);
+                        dataTempTimeStamp = dataMatrix(5:8, :);
+                        polarityTimeStamp(polarityNumEvents + (1 : eventNumber)) = packetTimeStampOffset + uint64(typecast(dataTempTimeStamp(:), 'int32'));
+                        dataTempAddress = dataMatrix(1:4, :);
+                        dataTempAddress = typecast(dataTempAddress(:), 'uint32');
+                        polarityValid(polarityNumEvents + (1 : eventNumber)) = mod(dataTempAddress, 2) == 1; % Pick off the first bit
+                        polarityPolarity(polarityNumEvents + (1 : eventNumber)) = mod(floor(dataTempAddress / 2), 2) == 1; % Pick out the second bit
+                        polarityY(polarityNumEvents + (1 : eventNumber)) = uint16(bitshift(bitand(dataTempAddress, polarityYMask), -polarityYShiftBits));
+                        polarityX(polarityNumEvents + (1 : eventNumber)) = uint16(bitshift(bitand(dataTempAddress, polarityXMask), -polarityXShiftBits));
+                        polarityNumEvents = polarityNumEvents + eventNumber;
 
-					% Iterate through the events, converting the data and
-					% populating the arrays
-					for dataPointer = 1 : eventSize : numBytesInPacket % This points to the first byte for each event
-						frameNumEvents = frameNumEvents + 1;
-						frameValid(frameNumEvents) = mod(data(dataPointer), 2) == 1; % Pick off the first bit
-						frameData = typecast(data(dataPointer : dataPointer + 3), 'uint32');
-						frameColorChannels(frameNumEvents) = uint16(bitshift(bitand(frameData, frameColorChannelsMask), -frameColorChannelsShiftBits));
-						frameColorFilter(frameNumEvents)	= uint16(bitshift(bitand(frameData, frameColorFilterMask),	-frameColorFilterShiftBits));
-						frameRoiId(frameNumEvents)		= uint16(bitshift(bitand(frameData, frameRoiIdMask),		-frameRoiIdShiftBits));
-						frameTimeStampFrameStart(frameNumEvents)		= packetTimestampOffset + uint64(typecast(data(dataPointer + 4 : dataPointer + 7), 'int32'));
-						frameTimeStampFrameEnd(frameNumEvents)		= packetTimestampOffset + uint64(typecast(data(dataPointer + 8 : dataPointer + 11), 'int32'));
-						frameTimeStampExposureStart(frameNumEvents)	= packetTimestampOffset + uint64(typecast(data(dataPointer + 12 : dataPointer + 15), 'int32'));
-						frameTimeStampExposureEnd(frameNumEvents)		= packetTimestampOffset + uint64(typecast(data(dataPointer + 16 : dataPointer + 19), 'int32'));
-						frameXLength(frameNumEvents)		= typecast(data(dataPointer + 20 : dataPointer + 21), 'uint16'); % strictly speaking these are 4-byte signed integers, but there's no way they'll be that big in practice
-						frameYLength(frameNumEvents)		= typecast(data(dataPointer + 24 : dataPointer + 25), 'uint16');
-						frameXPosition(frameNumEvents)	= typecast(data(dataPointer + 28 : dataPointer + 29), 'uint16');
-						frameYPosition(frameNumEvents)	= typecast(data(dataPointer + 32 : dataPointer + 33), 'uint16');
-						numSamples = int32(frameXLength(frameNumEvents)) * int32(frameYLength(frameNumEvents)) * int32(frameColorChannels(frameNumEvents)); % Conversion to int32 allows addition with 'dataPointer' below
-						% At least one recording has a file ending half way
-						% through the frame data due to a laptop dying,
-						% hence the following check
-						if length(data) >= dataPointer + 35 + numSamples * 2
-							sampleData = cast(typecast(data(dataPointer + 36 : dataPointer + 35 + numSamples * 2), 'uint16'), 'uint16');
-							frameSamples{frameNumEvents}		= reshape(sampleData, frameColorChannels(frameNumEvents), frameXLength(frameNumEvents), frameYLength(frameNumEvents));
-							if frameColorChannels(frameNumEvents) == 1
-								frameSamples{frameNumEvents} = squeeze(frameSamples{frameNumEvents});
-								frameSamples{frameNumEvents} = permute(frameSamples{frameNumEvents}, [2 1]);
-							else
-								% Change the dimensions of the frame array to
-								% the standard for matlab: column, then row,
-								% then channel number
-								frameSamples{frameNumEvents} = permute(frameSamples{frameNumEvents}, [3 2 1]);
-							end
-						else
-							frameSamples{frameNumEvents} = zeros(frameYLength(frameNumEvents), frameXLength(frameNumEvents), frameColorChannels(frameNumEvents));
-						end
-					end
-				end
-			elseif eventType == 3
-				if ~isfield(info, 'dataTypes') || any(cellfun(cellFind('imu6'), info.dataTypes))
-%{
-imu6Valid			= bool([]);
-imu6TimeStamp		= uint64([]);
-imu6AccelX			= single([]);
-imu6AccelY			= single([]);
-imu6AccelZ			= single([]);
-imu6GyroX			= single([]);
-imu6GyroY			= single([]);
-imu6GyroZ			= single([]);
-imu6Temperature	= single([]);
-%}
-				end
-			elseif eventType == 5
-				if ~isfield(info, 'dataTypes') || any(cellfun(cellFind('sample'), info.dataTypes))
-%{
-sampleValid			= bool([]);
-sampleTimeStamp		= uint64([]);
-sampleSampleType	= uint8([]);
-sampleSample		= uint32([]);
-%}
-				end
-			elseif eventType == 6
-				if ~isfield(info, 'dataTypes') || any(cellfun(cellFind('ear'), info.dataTypes))
-%{
-earValid		= bool([]);
-earTimeStamp	= uint64([]);
-earPosition 	= uint8([]);
-earChannel		= uint16([]);
-earNeuron		= uint8([]);
-earFilter		= uint8([]);
-%}				
-				end			
-			% Point1D events
-			elseif eventType == 8 
-				if ~isfield(info, 'dataTypes') || any(cellfun(cellFind('point1D'), info.dataTypes))
-					% First check if the array is big enough
-					currentLength = length(point1DValid);
-					if currentLength == 0
-						point1DValid		= false(eventNumber, 1);
-						point1DTimeStamp	= uint64(zeros(eventNumber, 1));
-						point1DValue		= single(zeros(eventNumber, 1));
-					else	
-						while eventNumber > currentLength - point1DNumEvents
-							point1DValid		= [point1DValid;		false(currentLength, 1)];
-							point1DTimeStamp	= [point1DTimeStamp;	uint64(zeros(currentLength, 1))];
-							point1DValue		= [point1DValue;		single(zeros(currentLength, 1))];
-							currentLength = length(point1dValid);
-							%disp(['Special array resized to ' num2str(currentLength)])
-						end
-					end
-					% Iterate through the events, converting the data and
-					% populating the arrays
-					for dataPointer = 1 : eventSize : numBytesInPacket % This points to the first byte for each event
-						point1DNumEvents = point1DNumEvents + 1;
-						point1DValid(point1DNumEvents) = mod(data(dataPointer), 2) == 1; %Pick off the first bit
-						point1DTimeStamp(point1DNumEvents) = packetTimestampOffset + uint64(typecast(data(dataPointer + 8 : dataPointer + 11), 'int32'));
-						point1DValue(point1DNumEvents) = typecast(data(dataPointer + 4 : dataPointer + 7), 'single');
-					end
-				end
+    %{					
+                        % Iterate through the events, converting the data and
+                        % populating the arrays
+                        for dataPointer = 1 : eventSize : numBytesInPacket % This points to the first byte for each event
+                            polarityNumEvents = polarityNumEvents + 1;
+                            polarityValid(polarityNumEvents) = mod(data(dataPointer), 2) == 1; % Pick off the first bit
+                            polarityTimeStamp(polarityNumEvents) = packetTimeStampOffset + uint64(typecast(data(dataPointer + 4 : dataPointer + 7), 'int32'));
+                            polarityData = typecast(data(dataPointer : dataPointer + 3), 'uint32');
+                            polarityY(polarityNumEvents) = uint16(bitshift(bitand(polarityData, polarityYMask), -polarityYShiftBits));
+                            polarityX(polarityNumEvents) = uint16(bitshift(bitand(polarityData, polarityXMask), -polarityXShiftBits));
+                        end
+    %}
+                    end
+    %% Frames
+                elseif eventType == 2
+                    if ~isfield(info, 'dataTypes') || any(cellfun(cellFind('frame'), info.dataTypes))
+                        % First check if the array is big enough
+                        currentLength = length(frameValid);
+                        if currentLength == 0
+                            frameValid					= false(eventNumber, 1);
+                            frameColorChannels			= uint8(zeros(eventNumber, 1));
+                            frameColorFilter			= uint8(zeros(eventNumber, 1));
+                            frameRoiId					= uint8(zeros(eventNumber, 1));
+                            frameTimeStampFrameStart	= uint64(zeros(eventNumber, 1));
+                            frameTimeStampFrameEnd		= uint64(zeros(eventNumber, 1));
+                            frameTimeStampExposureStart = uint64(zeros(eventNumber, 1));
+                            frameTimeStampExposureEnd	= uint64(zeros(eventNumber, 1));
+                            frameXLength				= uint16(zeros(eventNumber, 1));
+                            frameYLength				= uint16(zeros(eventNumber, 1));
+                            frameXPosition				= uint16(zeros(eventNumber, 1));
+                            frameYPosition				= uint16(zeros(eventNumber, 1));
+                            frameSamples				= cell(eventNumber, 1);
+                        else	
+                            while eventNumber > currentLength - frameNumEvents
+                                frameValid					= [frameValid; false(eventNumber, 1)];
+                                frameColorChannels			= [frameColorChannels;			uint8(zeros(currentLength, 1))];
+                                frameColorFilter			= [frameColorFilter;			uint8(zeros(currentLength, 1))];
+                                frameRoiId					= [frameRoiId;					uint8(zeros(currentLength, 1))];
+                                frameTimeStampFrameStart	= [frameTimeStampFrameStart;	uint64(zeros(currentLength, 1))];
+                                frameTimeStampFrameEnd		= [frameTimeStampFrameEnd;		uint64(zeros(currentLength, 1))];
+                                frameTimeStampExposureStart = [frameTimeStampExposureStart; uint64(zeros(currentLength, 1))];
+                                frameTimeStampExposureEnd	= [frameTimeStampExposureEnd;	uint64(zeros(currentLength, 1))];
+                                frameXLength				= [frameXLength;				uint16(zeros(currentLength, 1))];
+                                frameYLength				= [frameYLength;				uint16(zeros(currentLength, 1))];
+                                frameXPosition				= [frameXPosition;				uint16(zeros(currentLength, 1))];
+                                frameYPosition				= [frameYPosition;				uint16(zeros(currentLength, 1))];
+                                frameSamples				= [frameSamples;				cell(currentLength, 1)];
+                                currentLength = length(frameValid);
+                                %disp(['Frame array resized to ' num2str(currentLength)])
+                            end
+                        end					
 
-			% Point2D events
-			elseif eventType == 9 
-				if ~isfield(info, 'dataTypes') || any(cellfun(cellFind('point2D'), info.dataTypes))
-					% First check if the array is big enough
-					currentLength = length(point2DValid);
-					if currentLength == 0
-						point2DValid		= false(eventNumber, 1);
-						point2DTimeStamp	= uint64(zeros(eventNumber, 1));
-						point2DValue1		= single(zeros(eventNumber, 1));
-						point2DValue2		= single(zeros(eventNumber, 1));
-					else	
-						while eventNumber > currentLength - point2DNumEvents
-							point2DValid		= [point2DValid;		false(currentLength, 1)];
-							point2DTimeStamp	= [point2DTimeStamp;	uint64(zeros(currentLength, 1))];
-							point2DValue1		= [point2DValue1;		single(zeros(currentLength, 1))];
-							point2DValue2		= [point2DValue2;		single(zeros(currentLength, 1))];
-							currentLength = length(point2DValid);
-							%disp(['Special array resized to ' num2str(currentLength)])
-						end
-					end
-					% Iterate through the events, converting the data and
-					% populating the arrays
-					for dataPointer = 1 : eventSize : numBytesInPacket % This points to the first byte for each event
-						point2DNumEvents = point2DNumEvents + 1;
-						point2DValid(point2DNumEvents) = mod(data(dataPointer), 2) == 1; %Pick off the first bit
-						point2DTimeStamp(point2DNumEvents) = packetTimestampOffset + uint64(typecast(data(dataPointer + 12 : dataPointer + 15), 'int32'));
-						point2DValue1(point2DNumEvents) = typecast(data(dataPointer + 4 : dataPointer + 7), 'single');
-						point2DValue2(point2DNumEvents) = typecast(data(dataPointer + 8 : dataPointer + 11), 'single');
-					end
-				end
-			else
-				error('Unknown event type')
-			end
-		end
+                        % Iterate through the events, converting the data and
+                        % populating the arrays
+                        for dataPointer = 1 : eventSize : numBytesInPacket % This points to the first byte for each event
+                            frameNumEvents = frameNumEvents + 1;
+                            frameValid(frameNumEvents) = mod(data(dataPointer), 2) == 1; % Pick off the first bit
+                            frameData = typecast(data(dataPointer : dataPointer + 3), 'uint32');
+                            frameColorChannels(frameNumEvents) = uint16(bitshift(bitand(frameData, frameColorChannelsMask), -frameColorChannelsShiftBits));
+                            frameColorFilter(frameNumEvents)	= uint16(bitshift(bitand(frameData, frameColorFilterMask),	-frameColorFilterShiftBits));
+                            frameRoiId(frameNumEvents)		= uint16(bitshift(bitand(frameData, frameRoiIdMask),		-frameRoiIdShiftBits));
+                            frameTimeStampFrameStart(frameNumEvents)		= packetTimeStampOffset + uint64(typecast(data(dataPointer + 4 : dataPointer + 7), 'int32'));
+                            frameTimeStampFrameEnd(frameNumEvents)		= packetTimeStampOffset + uint64(typecast(data(dataPointer + 8 : dataPointer + 11), 'int32'));
+                            frameTimeStampExposureStart(frameNumEvents)	= packetTimeStampOffset + uint64(typecast(data(dataPointer + 12 : dataPointer + 15), 'int32'));
+                            frameTimeStampExposureEnd(frameNumEvents)		= packetTimeStampOffset + uint64(typecast(data(dataPointer + 16 : dataPointer + 19), 'int32'));
+                            frameXLength(frameNumEvents)		= typecast(data(dataPointer + 20 : dataPointer + 21), 'uint16'); % strictly speaking these are 4-byte signed integers, but there's no way they'll be that big in practice
+                            frameYLength(frameNumEvents)		= typecast(data(dataPointer + 24 : dataPointer + 25), 'uint16');
+                            frameXPosition(frameNumEvents)	= typecast(data(dataPointer + 28 : dataPointer + 29), 'uint16');
+                            frameYPosition(frameNumEvents)	= typecast(data(dataPointer + 32 : dataPointer + 33), 'uint16');
+                            numSamples = int32(frameXLength(frameNumEvents)) * int32(frameYLength(frameNumEvents)) * int32(frameColorChannels(frameNumEvents)); % Conversion to int32 allows addition with 'dataPointer' below
+                            % At least one recording has a file ending half way
+                            % through the frame data due to a laptop dying,
+                            % hence the following check
+                            if length(data) >= dataPointer + 35 + numSamples * 2
+                                sampleData = cast(typecast(data(dataPointer + 36 : dataPointer + 35 + numSamples * 2), 'uint16'), 'uint16');
+                                frameSamples{frameNumEvents}		= reshape(sampleData, frameColorChannels(frameNumEvents), frameXLength(frameNumEvents), frameYLength(frameNumEvents));
+                                if frameColorChannels(frameNumEvents) == 1
+                                    frameSamples{frameNumEvents} = squeeze(frameSamples{frameNumEvents});
+                                    frameSamples{frameNumEvents} = permute(frameSamples{frameNumEvents}, [2 1]);
+                                else
+                                    % Change the dimensions of the frame array to
+                                    % the standard for matlab: column, then row,
+                                    % then channel number
+                                    frameSamples{frameNumEvents} = permute(frameSamples{frameNumEvents}, [3 2 1]);
+                                end
+                            else
+                                frameSamples{frameNumEvents} = zeros(frameYLength(frameNumEvents), frameXLength(frameNumEvents), frameColorChannels(frameNumEvents));
+                            end
+                            % aedat3 uses left-justified 16 bit samples -
+                            % for consistency with aedat2, revert to
+                            % fundamental 10 bit representation
+                            frameSamples{frameNumEvents} = frameSamples{frameNumEvents} / 2^6;
+                        end
+                        
+                    end
+    %% IMU6
+                elseif eventType == 3
+                    if ~isfield(info, 'dataTypes') || any(cellfun(cellFind('imu6'), info.dataTypes))
+    %{
+    imu6Valid			= bool([]);
+    imu6TimeStamp		= uint64([]);
+    imu6AccelX			= single([]);
+    imu6AccelY			= single([]);
+    imu6AccelZ			= single([]);
+    imu6GyroX			= single([]);
+    imu6GyroY			= single([]);
+    imu6GyroZ			= single([]);
+    imu6Temperature	= single([]);
+    %}
+                        % First check if the array is big enough
+                        currentLength = length(imu6Valid);
+                        if currentLength == 0 
+                            imu6Valid			= false(eventNumber, 1);
+                            imu6TimeStamp		= uint64(zeros(eventNumber, 1));
+                            imu6AccelX			= single(zeros(eventNumber, 1));
+                            imu6AccelY			= single(zeros(eventNumber, 1));
+                            imu6AccelZ			= single(zeros(eventNumber, 1));
+                            imu6GyroX			= single(zeros(eventNumber, 1));
+                            imu6GyroY			= single(zeros(eventNumber, 1));
+                            imu6GyroZ			= single(zeros(eventNumber, 1));
+                            imu6Temperature     = single(zeros(eventNumber, 1));
+                        else	
+                            while eventNumber > currentLength - imu6NumEvents
+                                imu6Valid			= [imu6Valid;        false(currentLength, 1)];
+                                imu6TimeStamp		= [imu6TimeStamp;    uint64(zeros(currentLength, 1))];
+                                imu6AccelX			= [imu6AccelX;       single(zeros(currentLength, 1))];
+                                imu6AccelY			= [imu6AccelY;       single(zeros(currentLength, 1))];
+                                imu6AccelZ			= [imu6AccelZ;       single(zeros(currentLength, 1))];
+                                imu6GyroX			= [imu6GyroX;        single(zeros(currentLength, 1))];
+                                imu6GyroY			= [imu6GyroY;        single(zeros(currentLength, 1))];
+                                imu6GyroZ			= [imu6GyroZ;        single(zeros(currentLength, 1))];
+                                imu6Temperature     = [imu6Temperature;  single(zeros(currentLength, 1))];                            
+                                currentLength = length(imu6Valid);
+                            end
+                        end
+                        % Matricise computation on a packet
+                        dataMatrix = reshape(data, [eventSize, eventNumber]);
+                        dataTempTimeStamp = dataMatrix(5:8, :);
+                        imu6TimeStamp(imu6NumEvents + (1 : eventNumber)) = packetTimeStampOffset + uint64(typecast(dataTempTimeStamp(:), 'int32'));
+                        % The following is overkill - onlky need to pick out 1
+                        % byte to get to the valid flag
+                        dataTempAddress = dataMatrix(1:4, :);
+                        dataTempAddress = typecast(dataTempAddress(:), 'uint32');
+                        imu6Valid(imu6NumEvents + (1 : eventNumber)) = mod(dataTempAddress, 2) == 1; % Pick off the first bit
+                        tempDataMatrix = dataMatrix(9:12, :);
+                        imu6AccelX      (imu6NumEvents + (1 : eventNumber)) = typecast(tempDataMatrix(:), 'single');
+                        tempDataMatrix = dataMatrix(13:16, :);
+                        imu6AccelY      (imu6NumEvents + (1 : eventNumber)) = typecast(tempDataMatrix(:), 'single');
+                        tempDataMatrix = dataMatrix(17:20, :);
+                        imu6AccelZ      (imu6NumEvents + (1 : eventNumber)) = typecast(tempDataMatrix(:), 'single');
+                        tempDataMatrix = dataMatrix(21:24, :);
+                        imu6GyroX       (imu6NumEvents + (1 : eventNumber)) = typecast(tempDataMatrix(:), 'single');
+                        tempDataMatrix = dataMatrix(25:28, :);
+                        imu6GyroY       (imu6NumEvents + (1 : eventNumber)) = typecast(tempDataMatrix(:), 'single');
+                        tempDataMatrix = dataMatrix(29:32, :);
+                        imu6GyroZ       (imu6NumEvents + (1 : eventNumber)) = typecast(tempDataMatrix(:), 'single');
+                        tempDataMatrix = dataMatrix(33:36, :);
+                        imu6Temperature (imu6NumEvents + (1 : eventNumber)) = typecast(tempDataMatrix(:), 'single');
+                        imu6NumEvents = imu6NumEvents + eventNumber;
+                    end
+    %% Sample
+                elseif eventType == 5
+                    if ~isfield(info, 'dataTypes') || any(cellfun(cellFind('sample'), info.dataTypes))
+    %{
+    sampleValid			= bool([]);
+    sampleTimeStamp		= uint64([]);
+    sampleSampleType	= uint8([]);
+    sampleSample		= uint32([]);
+    %}
+                    end
+    %% Ear
+                elseif eventType == 6
+                    if ~isfield(info, 'dataTypes') || any(cellfun(cellFind('ear'), info.dataTypes))
+    %{
+    earValid		= bool([]);
+    earTimeStamp	= uint64([]);
+    earPosition 	= uint8([]);
+    earChannel		= uint16([]);
+    earNeuron		= uint8([]);
+    earFilter		= uint8([]);
+    %}				
+                    end	
+    %% Point1D
+                % Point1D events
+                elseif eventType == 8 
+                    if ~isfield(info, 'dataTypes') || any(cellfun(cellFind('point1D'), info.dataTypes))
+                        % First check if the array is big enough
+                        currentLength = length(point1DValid);
+                        if currentLength == 0
+                            point1DValid		= false(eventNumber, 1);
+                            point1DTimeStamp	= uint64(zeros(eventNumber, 1));
+                            point1DValue		= single(zeros(eventNumber, 1));
+                        else	
+                            while eventNumber > currentLength - point1DNumEvents
+                                point1DValid		= [point1DValid;		false(currentLength, 1)];
+                                point1DTimeStamp	= [point1DTimeStamp;	uint64(zeros(currentLength, 1))];
+                                point1DValue		= [point1DValue;		single(zeros(currentLength, 1))];
+                                currentLength = length(point1dValid);
+                                %disp(['Special array resized to ' num2str(currentLength)])
+                            end
+                        end
+                        % Iterate through the events, converting the data and
+                        % populating the arrays
+                        for dataPointer = 1 : eventSize : numBytesInPacket % This points to the first byte for each event
+                            point1DNumEvents = point1DNumEvents + 1;
+                            point1DValid(point1DNumEvents) = mod(data(dataPointer), 2) == 1; %Pick off the first bit
+                            point1DTimeStamp(point1DNumEvents) = packetTimeStampOffset + uint64(typecast(data(dataPointer + 8 : dataPointer + 11), 'int32'));
+                            point1DValue(point1DNumEvents) = typecast(data(dataPointer + 4 : dataPointer + 7), 'single');
+                        end
+                    end
+    %% Point2D
+                % Point2D events
+                elseif eventType == 9 
+                    if ~isfield(info, 'dataTypes') || any(cellfun(cellFind('point2D'), info.dataTypes))
+                        % First check if the array is big enough
+                        currentLength = length(point2DValid);
+                        if currentLength == 0
+                            point2DValid		= false(eventNumber, 1);
+                            point2DTimeStamp	= uint64(zeros(eventNumber, 1));
+                            point2DValue1		= single(zeros(eventNumber, 1));
+                            point2DValue2		= single(zeros(eventNumber, 1));
+                        else	
+                            while eventNumber > currentLength - point2DNumEvents
+                                point2DValid		= [point2DValid;		false(currentLength, 1)];
+                                point2DTimeStamp	= [point2DTimeStamp;	uint64(zeros(currentLength, 1))];
+                                point2DValue1		= [point2DValue1;		single(zeros(currentLength, 1))];
+                                point2DValue2		= [point2DValue2;		single(zeros(currentLength, 1))];
+                                currentLength = length(point2DValid);
+                                %disp(['Special array resized to ' num2str(currentLength)])
+                            end
+                        end
+                        % Iterate through the events, converting the data and
+                        % populating the arrays
+                        for dataPointer = 1 : eventSize : numBytesInPacket % This points to the first byte for each event
+                            point2DNumEvents = point2DNumEvents + 1;
+                            point2DValid(point2DNumEvents) = mod(data(dataPointer), 2) == 1; %Pick off the first bit
+                            point2DTimeStamp(point2DNumEvents) = packetTimeStampOffset + uint64(typecast(data(dataPointer + 12 : dataPointer + 15), 'int32'));
+                            point2DValue1(point2DNumEvents) = typecast(data(dataPointer + 4 : dataPointer + 7), 'single');
+                            point2DValue2(point2DNumEvents) = typecast(data(dataPointer + 8 : dataPointer + 11), 'single');
+                        end
+                    end
+                else
+                    error('Unknown event type')
+                end
+            end
+        end
 	end
 	if packetCount == info.endPacket
 		break
@@ -535,6 +618,7 @@ end
 
 info.packetTypes	= packetTypes(1 : packetCount);
 info.packetPointers	= packetPointers(1 : packetCount);
+info.packetTimeStamps	= packetTimeStamps(1 : packetCount);
 
 output.info = info;
 

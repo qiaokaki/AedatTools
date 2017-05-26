@@ -1,4 +1,4 @@
-function semilogyDataDensity(input, numBins, runningAverage)
+function PlotDataDensity(input, numBins, runningAverage)
 
 %{
 2016_07_03 WIP!
@@ -30,7 +30,7 @@ if isfield(input.data, 'special')
 		firstTimeStampIndex = find(input.data.special.timeStamp >= timeBinBoundariesUs(bin), 1, 'first');
 		lastTimeStampIndex = max(firstTimeStampIndex, find(input.data.special.timeStamp < timeBinBoundariesUs(bin + 1), 1, 'last'));
 		if ~isempty(firstTimeStampIndex) && ~isempty(lastTimeStampIndex) 
-			density(bin) = (lastTimeStampIndex - firstTimeStampIndex) / durationOfBinS;
+			density(bin) = double(lastTimeStampIndex - firstTimeStampIndex) / durationOfBinS;
 		end
 	end
 	if exist('runningAverage', 'var') && runningAverage > 1
@@ -40,13 +40,14 @@ if isfield(input.data, 'special')
 	semilogy(timeBinCentresS, density)
 	legendLocal = [legendLocal 'special'];
 end
+
 if isfield(input.data, 'polarity')
 	density = zeros(numBins, 1);
 	for bin = 1 : numBins 
 		firstTimeStampIndex = find(input.data.polarity.timeStamp >= timeBinBoundariesUs(bin), 1, 'first');
 		lastTimeStampIndex = max(firstTimeStampIndex, find(input.data.polarity.timeStamp < timeBinBoundariesUs(bin + 1), 1, 'last'));
 		if ~isempty(firstTimeStampIndex) && ~isempty(lastTimeStampIndex) 
-			density(bin) = (lastTimeStampIndex - firstTimeStampIndex) / durationOfBinS;
+			density(bin) = double(lastTimeStampIndex - firstTimeStampIndex) / durationOfBinS;
 		end
 	end
 	if exist('runningAverage', 'var') && runningAverage > 1
@@ -56,13 +57,14 @@ if isfield(input.data, 'polarity')
 	semilogy(timeBinCentresS, density)
 	legendLocal = [legendLocal 'polarity'];
 end
+
 if isfield(input.data, 'frame')
 	density = zeros(numBins, 1);
 	for bin = 1 : numBins 
 		firstTimeStampIndex = find(input.data.frame.timeStampExposureStart >= timeBinBoundariesUs(bin), 1, 'first');
 		lastTimeStampIndex = max(firstTimeStampIndex, find(input.data.frame.timeStampExposureStart < timeBinBoundariesUs(bin + 1), 1, 'last'));
 		if ~isempty(firstTimeStampIndex) && ~isempty(lastTimeStampIndex) 
-			density(bin) = (lastTimeStampIndex - firstTimeStampIndex) / durationOfBinS;
+			density(bin) = double(lastTimeStampIndex - firstTimeStampIndex) / durationOfBinS;
 		end
 	end
 	if exist('runningAverage', 'var') && runningAverage > 1
@@ -72,13 +74,14 @@ if isfield(input.data, 'frame')
 	semilogy(timeBinCentresS, density)
 	legendLocal = [legendLocal 'frame'];
 end
+
 if isfield(input.data, 'imu6')
 	density = zeros(numBins, 1);
 	for bin = 1 : numBins 
 		firstTimeStampIndex = find(input.data.imu6.timeStamp >= timeBinBoundariesUs(bin), 1, 'first');
-		lastTimeStampIndex = max(firstTimeStampIndex, find(input.data.special.imu6 < timeBinBoundariesUs(bin + 1), 1, 'last'));
+		lastTimeStampIndex = max(firstTimeStampIndex, find(input.data.imu6.timeStamp < timeBinBoundariesUs(bin + 1), 1, 'last'));
 		if ~isempty(firstTimeStampIndex) && ~isempty(lastTimeStampIndex) 
-			density(bin) = (lastTimeStampIndex - firstTimeStampIndex) / durationOfBinS;
+			density(bin) = double(lastTimeStampIndex - firstTimeStampIndex) / durationOfBinS;
 		end
 	end
 	if exist('runningAverage', 'var') && runningAverage > 1
@@ -88,13 +91,14 @@ if isfield(input.data, 'imu6')
 	semilogy(timeBinCentresS, density)
 	legendLocal = [legendLocal 'imu6'];
 end
+
 if isfield(input.data, 'sample')
 	density = zeros(numBins, 1);
 	for bin = 1 : numBins 
 		firstTimeStampIndex = find(input.data.sample.timeStamp >= timeBinBoundariesUs(bin), 1, 'first');
 		lastTimeStampIndex = max(firstTimeStampIndex, find(input.data.sample.timeStamp < timeBinBoundariesUs(bin + 1), 1, 'last'));
 		if ~isempty(firstTimeStampIndex) && ~isempty(lastTimeStampIndex) 
-			density(bin) = (lastTimeStampIndex - firstTimeStampIndex) / durationOfBinS;
+			density(bin) = double(lastTimeStampIndex - firstTimeStampIndex) / durationOfBinS;
 		end
 	end
 	if exist('runningAverage', 'var') && runningAverage > 1
@@ -104,13 +108,14 @@ if isfield(input.data, 'sample')
 	semilogy(timeBinCentresS, density)
 	legendLocal = [legendLocal 'sample'];
 end
+
 if isfield(input.data, 'ear')
 	density = zeros(numBins, 1);
 	for bin = 1 : numBins 
 		firstTimeStampIndex = find(input.data.ear.timeStamp >= timeBinBoundariesUs(bin), 1, 'first');
 		lastTimeStampIndex = max(firstTimeStampIndex, find(input.data.ear.timeStamp < timeBinBoundariesUs(bin + 1), 1, 'last'));
 		if ~isempty(firstTimeStampIndex) && ~isempty(lastTimeStampIndex) 
-			density(bin) = (lastTimeStampIndex - firstTimeStampIndex) / durationOfBinS;
+			density(bin) = double(lastTimeStampIndex - firstTimeStampIndex) / durationOfBinS;
 		end
 	end
 	if exist('runningAverage', 'var') && runningAverage > 1
@@ -120,13 +125,14 @@ if isfield(input.data, 'ear')
 	semilogy(timeBinCentresS, density)
 	legendLocal = [legendLocal 'ear'];
 end
+
 if isfield(input.data, 'point1D')
 	density = zeros(numBins, 1);
 	for bin = 1 : numBins 
 		firstTimeStampIndex = find(input.data.point1D.timeStamp >= timeBinBoundariesUs(bin), 1, 'first');
 		lastTimeStampIndex = max(firstTimeStampIndex, find(input.data.point1D.timeStamp < timeBinBoundariesUs(bin + 1), 1, 'last'));
 		if ~isempty(firstTimeStampIndex) && ~isempty(lastTimeStampIndex) 
-			density(bin) = (lastTimeStampIndex - firstTimeStampIndex) / durationOfBinS;
+			density(bin) = double(lastTimeStampIndex - firstTimeStampIndex) / durationOfBinS;
 		end
 	end
 	if exist('runningAverage', 'var') && runningAverage > 1
@@ -143,7 +149,7 @@ if isfield(input.data, 'point2D')
 		firstTimeStampIndex = find(input.data.point2D.timeStamp >= timeBinBoundariesUs(bin), 1, 'first');
 		lastTimeStampIndex = max(firstTimeStampIndex, find(input.data.point2D.timeStamp < timeBinBoundariesUs(bin + 1), 1, 'last'));
 		if ~isempty(firstTimeStampIndex) && ~isempty(lastTimeStampIndex) 
-			density(bin) = (lastTimeStampIndex - firstTimeStampIndex) / durationOfBinS;
+			density(bin) = double(lastTimeStampIndex - firstTimeStampIndex) / durationOfBinS;
 		end
 	end
 	if exist('runningAverage', 'var') && runningAverage > 1
