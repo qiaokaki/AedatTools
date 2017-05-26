@@ -146,7 +146,7 @@ if ~isfield(info, 'startEvent')
 end
 if info.startEvent > info.numEventsInFile
 	error([	'The file contains ' num2str(info.numEventsInFile) ...
-			'; the startEvent parameter is ' num2str(info.startEvents) ]);
+			'; the startEvent parameter is ' num2str(info.startEvent) ]);
 end
 if ~isfield(info, 'endEvent')	
 	info.endEvent = info.numEventsInFile;
@@ -477,28 +477,33 @@ elseif strfind(info.source, 'Davis')
 	if (~isfield(info, 'dataTypes') || any(cellfun(cellFind('imu6'), info.dataTypes))) && any(imuLogical)
 		disp('Importing imu6 events ...')
 		if mod(nnz(imuLogical), 7) > 0 
-			error('The number of IMU samples is not divisible by 7, so IMU samples are not interpretable')
+			%error('The number of IMU samples is not divisible by 7, so IMU samples are not interpretable')
+            % There's a problem here, but chop off the last words and hope
+            % for the best ...
 		end
 		output.data.imu6.timeStamp = allTs(imuLogical);
-		output.data.imu6.timeStamp = output.data.imu6.timeStamp(1 : 7 : end);
+		output.data.imu6.timeStamp = output.data.imu6.timeStamp(1 : 7 : end - mod(nnz(imuLogical), 7));
 
 		%Conversion factors
-		accelScale = 1/16384;
-		gyroScale = 1/131;
+		accelScale = 1/8192;
+		gyroScale = 1/65.5;
 		temperatureScale = 1/340;
 		temperatureOffset=35;
 
 		imuDataMask = hex2dec('0FFFF000');
 		imuDataShiftBits = 12;
-		rawData = single(typecast(bitshift(bitand(allAddr(imuLogical), imuDataMask), -imuDataShiftBits),'int16'));		
+        rawData = bitshift(bitand(allAddr(imuLogical), imuDataMask), -imuDataShiftBits);
+        % Now RawData is uint32, but the data is a signed int in the ls 16 bits. 
+		rawData = uint16(rawData);
+        rawData = typecast(rawData, 'int16');
 				
-		output.data.imu6.accelX			= rawData(1 : 7 : end) * accelScale;	
-		output.data.imu6.accelY			= rawData(2 : 7 : end) * accelScale;	
-		output.data.imu6.accelZ			= rawData(3 : 7 : end) * accelScale;	
-		output.data.imu6.temperature	= rawData(4 : 7 : end) * temperatureScale + temperatureOffset;	
-		output.data.imu6.gyroX			= rawData(5 : 7 : end) * gyroScale;	
-		output.data.imu6.gyroY			= rawData(6 : 7 : end) * gyroScale;	
-		output.data.imu6.gyroZ			= rawData(7 : 7 : end) * gyroScale;	
+		output.data.imu6.accelX			= rawData(1 : 7 : end - mod(nnz(imuLogical), 7)) * accelScale;	
+		output.data.imu6.accelY			= rawData(2 : 7 : end - mod(nnz(imuLogical), 7)) * accelScale;	
+		output.data.imu6.accelZ			= rawData(3 : 7 : end - mod(nnz(imuLogical), 7)) * accelScale;	
+		output.data.imu6.temperature	= rawData(4 : 7 : end - mod(nnz(imuLogical), 7)) * temperatureScale + temperatureOffset;	
+		output.data.imu6.gyroX			= rawData(5 : 7 : end - mod(nnz(imuLogical), 7)) * gyroScale;	
+		output.data.imu6.gyroY			= rawData(6 : 7 : end - mod(nnz(imuLogical), 7)) * gyroScale;	
+		output.data.imu6.gyroZ			= rawData(7 : 7 : end - mod(nnz(imuLogical), 7)) * gyroScale;	
 		
 	end
 
