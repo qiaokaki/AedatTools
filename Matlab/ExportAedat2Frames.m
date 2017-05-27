@@ -58,7 +58,7 @@ x = x(:);
 x = x';
 for frameIndex = 1 : numFrames
     samples((frameIndex - 1) * numPixels + 1 : frameIndex * numPixels) ...
-        = input.data.frame.samples{frameIndex}(:) / 2^6; % Temporary Hack toreduce number of bits.
+        = input.data.frame.samples{frameIndex}(:) ; 
     timeStamps((frameIndex - 1) * numPixels + 1 : frameIndex * numPixels) ...
         = input.data.frame.timeStampExposureStart(frameIndex); % This gives zeros delay from exposure start to read out - unrealistic
 end
