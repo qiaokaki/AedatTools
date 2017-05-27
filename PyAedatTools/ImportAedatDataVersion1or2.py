@@ -153,10 +153,10 @@ def ImportAedatDataVersion1or2(info):
                  and any(specialLogical):
             print 'Processing special events ...'
             output['data']['special'] = {}
-            output['data']['special']['timeStamp'] = allTs(specialLogical) 
+            output['data']['special']['timeStamp'] = allTs[specialLogical] 
             # No need to create address field, since there is only one type of special event
         del specialLogical
-        
+    
         polarityLogical = np.logical_and(np.logical_not(apsOrImuLogical),
                                       np.logical_not(signalOrSpecialLogical))
         # Polarity(DVS) events

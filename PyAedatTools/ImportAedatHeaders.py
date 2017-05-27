@@ -55,9 +55,12 @@ def ImportAedatHeaders(info):
         if line[: 9] == ' AEChip: ':
             # Ignore everything the class path and only use what follows the
             # final dot
-            start_prefix = line.rfind('.')
+            try:
+                start_prefix = line.rfind('.')
+            except:
+                start_prefix = 9    
             info['sourceFromFile'] = ImportAedatBasicSourceName(
-                line[start_prefix + 1:])
+                line[start_prefix:])
         # Version 3.0 encodes it like this
         # The following ignores any trace of previous sources
         # (prefixed with a minus sign)

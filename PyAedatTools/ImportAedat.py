@@ -6,7 +6,7 @@ ImportAedat
 
 from PyAedatTools.ImportAedatHeaders import ImportAedatHeaders
 from PyAedatTools.ImportAedatDataVersion1or2 import ImportAedatDataVersion1or2
-#import ImportAedatDataVersion3
+#from PyAedatTools.ImportAedatDataVersion3 import ImportAedatDataVersion3
 
 def ImportAedat(args):
     """

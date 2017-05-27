@@ -132,6 +132,3 @@ def ExportToRosbag(aedat):
             bag.write(topic='/dvs/imu', msg=imuMsg, t=imuMsg.header.stamp)
     bag.close()
 
-# For testing 
-output['info']['dataTypes'] = {'imu6'}  
-ExportToRosbag(output)
