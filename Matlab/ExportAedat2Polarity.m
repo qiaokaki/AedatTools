@@ -1,4 +1,4 @@
-function ExportAedat2Polarity(aedat, chip)
+function ExportAedat2Polarity(aedat)
 
 %{
 This function exports data to a .aedat file. 
@@ -24,23 +24,19 @@ f = fopen(aedat.exportParams.filePath, 'w', 'b');
 
 % CRLF \r\n is needed to not break header parsing in jAER
 fprintf(f,'#!AER-DAT2.0\r\n');
-fprintf(f,'# This is a raw AE data file created by saveaerdat.m\r\n');
+fprintf(f,'# This is a raw AE data file created by an export function in the AedatTools library\r\n');
 fprintf(f,'# Data format is int32 address, int32 timestamp (8 bytes total), repeated for each event\r\n');
 fprintf(f,'# Timestamps tick is 1 us\r\n');
-
-% Put the source in NEEDS DOING PROPERLY
-if ~exist('chip', 'var')
-    chip = 'Davis240C';
+% Put the source in - use an override if it has been given
+if isfield(aedat.exportParams, 'source')
+    source = aedat.exportParams.source;
+else 
+    source = aedat.info.source;
 end
-if strcmp(chip, 'DVS128')
-    fprintf(f,'# AEChip: DVS128\r\n');
-else % Default to DAVIS240C
-    fprintf(f,'# AEChip: DAVIS240C\r\n');
-end
-
+fprintf(f,['# AEChip: ' source '\r\n']);
 fprintf(f,'# End of ASCII Header\r\n');
 
-if strcmp(chip, 'DVS128')
+if strcmp(source, 'Dvs128')
     % In the 32-bit address:
     % bit 1 (1-based) is polarity
     % bit 2-8 is x
@@ -54,7 +50,7 @@ if strcmp(chip, 'DVS128')
     x =   int32(aedat.data.polarity.x)          * int32(2 ^ xShiftBits);
     pol = int32(aedat.data.polarity.polarity)    * int32(2 ^ polShiftBits);
     addr = y + x + pol;
-else % Default to DAVIS240C
+else % Default to DAVIS
     % In the 32-bit address:
     % bit 32 (1-based) being 1 indicates an APS sample
     % bit 11 (1-based) being 1 indicates a special event 
