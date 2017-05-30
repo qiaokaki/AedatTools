@@ -2,6 +2,8 @@
 
 """
 ImportAedat
+
+Code contributions from Bodo Rueckhauser
 """
 
 from PyAedatTools.ImportAedatHeaders import ImportAedatHeaders

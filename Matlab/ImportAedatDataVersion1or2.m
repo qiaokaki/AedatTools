@@ -1,5 +1,7 @@
 function aedat = ImportAedatDataVersion1or2(aedat)
 %{
+Code contributions from Gemma Taverni.
+
 This is a sub-function of importAedat - it process the data where the aedat 
 file format is determined to be 1 or 2. 
 The .aedat file format is documented here:
