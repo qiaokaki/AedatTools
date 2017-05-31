@@ -1,8 +1,10 @@
-function output = ImportAedatDeviceAddressSpace(input)
+function deviceAddressSpace = ImportAedatDeviceAddressSpace(deviceName)
 
 %{ 
-input is a device name; output is the key device name associated with that
-name
+input is a device name
+output is the device address space. 
+For vision sensors this is typically a tuple of [X Y], but the DAS1 for
+example, has four address dimensions. 
 %}
 
 dbstop if error
@@ -28,11 +30,11 @@ devices = { ...
 			'Das1'				'Special handling required'; ...
         };
     
-sourceNameMatchLogical = cellfun(@strcmp, devices(:, 1), repmat({input}, length(devices), 1));
+sourceNameMatchLogical = cellfun(@strcmp, devices(:, 1), repmat({deviceName}, length(devices), 1));
 if any(sourceNameMatchLogical)
-	output = devices{sourceNameMatchLogical, 2};
+	deviceAddressSpace = devices{sourceNameMatchLogical, 2};
 else
-	error(['Source name not recognised: ' input])
+	error(['Source name not recognised: ' deviceName])
 end
 
 

@@ -141,22 +141,23 @@ At the end of the run they are clipped to the correct size.
 dbstop if error
 
 info = aedat.info;
-fileHandle = aedat.importParams.fileHandle;
+importParams = aedat.importParams;
+fileHandle = importParams.fileHandle;
 
 % Check the startEvent and endEvent parameters
-if isfield(aedat.importParams, 'startPacket')
+if isfield(importParams, 'startPacket')
     info.startPacket = importParams.startPacket;
 else
 	info.startPacket = 1;
 end
 
-if isfield(aedat.importParams, 'modPacket')
-    info.modPacket = aedat.importParams.modPacket;
+if isfield(importParams, 'modPacket')
+    info.modPacket = importParams.modPacket;
 else
 	info.modPacket = 1;
 end
-if isfield(aedat.importParams, 'endPacket')
-	info.endPacket = aedat.importParams.endPacket;
+if isfield(importParams, 'endPacket')
+	info.endPacket = importParams.endPacket;
 else
 	info.endPacket = inf;
 end
@@ -170,13 +171,13 @@ end
 if isfield(info, 'endEvent')
 	error('The endEvent parameter is set, but range by events is not available for .aedat version 3.x files')
 end
-if isfield(aedat.importParams, 'startTime')
-    info.startTime = aedat.importParams.startTime;
+if isfield(importParams, 'startTime')
+    info.startTime = importParams.startTime;
 else
 	info.startTime = 0;
 end
-if isfield(aedat.importParams, 'endTime')
-    info.endTime = aedat.importParams.endTime;
+if isfield(importParams, 'endTime')
+    info.endTime = importParams.endTime;
 else
 	info.endTime = inf;
 end
@@ -250,7 +251,8 @@ fseek(fileHandle, info.beginningOfDataPointer, 'bof');
 % startPacket or startTime parameter, then jump ahead to the right place
 if isfield(info, 'packetPointers') 
     if info.startPacket > 1 
-        fseek(fileHandle, info.packetPointers(info.startPacket), 'bof');
+        fseek(fileHandle, double(info.packetPointers(info.startPacket)), 'bof');
+        packetCount = info.startPacket - 1;
     elseif info.startTime > 0
         targetPacketIndex = find(info.packetTimeStamps < info.startTime * 1e6, 1, 'last');
         if ~isempty(targetPacketIndex)
@@ -260,15 +262,28 @@ if isfield(info, 'packetPointers')
     end
 end
 
+% If the file has already been indexed (PARTIAL INDEXING NOT HANDLED), and
+% we are using modPacket to skip a proportion of the data, then use this
+% flag to speed up the loop
+modSkipping = isfield(info, 'packetPointers') ...
+                && isfield(importParams, 'modPacket') ...
+                && importParams.modPacket > 1;
+
 while true % implement the exit conditions inside the loop - allows to distinguish between different types of exit
 %% Headers
     % Read the header of the next packet
+    packetCount = packetCount + 1;
+    if modSkipping
+        packetCount = ceil(packetCount / importParams.modPacket) * importParams.modPacket;
+        fseek(fileHandle, double(info.packetPointers(packetCount)), 'bof');
+    end
 	header = uint8(fread(fileHandle, 28));
+    
 	if feof(fileHandle)
+        packetCount = packetCount - 1;
 		info.numPackets = packetCount;
 		break
 	end
-	packetCount = packetCount + 1;
 	if length(packetTypes) < packetCount
 		% Double the size of packet index arrays as necessary
 		packetTypes		= [packetTypes;		ones(packetCount, 1, 'uint16') * 32768];
@@ -284,7 +299,11 @@ while true % implement the exit conditions inside the loop - allows to distingui
 		eventSize = typecast(header(5:8), 'int32');
 		eventNumber = typecast(header(21:24), 'int32');
 		fseek(fileHandle, eventNumber * eventSize, 'cof');
-	else
+    elseif info.endPacket < packetCount
+        packetCount = packetCount - 1;
+		info.numPackets = packetCount;
+        break
+    else
 		eventSize = typecast(header(5:8), 'int32');
 		eventTsOffset = typecast(header(9:12), 'int32');
 		eventTsOverflow = typecast(header(13:16), 'int32');
@@ -311,11 +330,11 @@ while true % implement the exit conditions inside the loop - allows to distingui
 			
 			%eventSource = typecast(data(3:4), 'int16'); % Multiple sources not handled yet
 
-            if ~isfield(aedat.importParams, 'noData') || ~aedat.importParams.noData
+            if ~isfield(importParams, 'noData') || ~importParams.noData
     			% Handle the packet types individually:
     %% Special events
                 if eventType == 0 
-                    if ~isfield(info, 'dataTypes') || any(cellfun(cellFind('special'), importParams.dataTypes))
+                    if ~isfield(importParams, 'dataTypes') || any(cellfun(cellFind('special'), importParams.dataTypes))
                         % First check if the array is big enough
                         currentLength = length(specialValid);
                         if currentLength == 0
@@ -342,7 +361,7 @@ while true % implement the exit conditions inside the loop - allows to distingui
                     end
     %% Polarity events
                 elseif eventType == 1  
-                    if ~isfield(info, 'dataTypes') || any(cellfun(cellFind('polarity'), importParams.dataTypes))
+                    if ~isfield(importParams, 'dataTypes') || any(cellfun(cellFind('polarity'), importParams.dataTypes))
                         % First check if the array is big enough
                         currentLength = length(polarityValid);
                         if currentLength == 0 
@@ -389,7 +408,7 @@ while true % implement the exit conditions inside the loop - allows to distingui
                     end
     %% Frames
                 elseif eventType == 2
-                    if ~isfield(info, 'dataTypes') || any(cellfun(cellFind('frame'), importParams.dataTypes))
+                    if ~isfield(importParams, 'dataTypes') || any(cellfun(cellFind('frame'), importParams.dataTypes))
                         % First check if the array is big enough
                         currentLength = length(frameValid);
                         if currentLength == 0
@@ -471,7 +490,7 @@ while true % implement the exit conditions inside the loop - allows to distingui
                     end
     %% IMU6
                 elseif eventType == 3
-                    if ~isfield(info, 'dataTypes') || any(cellfun(cellFind('imu6'), importParams.dataTypes))
+                    if ~isfield(importParams, 'dataTypes') || any(cellfun(cellFind('imu6'), importParams.dataTypes))
     %{
     imu6Valid			= bool([]);
     imu6TimeStamp		= uint64([]);
@@ -536,7 +555,7 @@ while true % implement the exit conditions inside the loop - allows to distingui
                     end
     %% Sample
                 elseif eventType == 5
-                    if ~isfield(info, 'dataTypes') || any(cellfun(cellFind('sample'), importParams.dataTypes))
+                    if ~isfield(importParams, 'dataTypes') || any(cellfun(cellFind('sample'), importParams.dataTypes))
     %{
     sampleValid			= bool([]);
     sampleTimeStamp		= uint64([]);
@@ -559,7 +578,7 @@ while true % implement the exit conditions inside the loop - allows to distingui
     %% Point1D
                 % Point1D events
                 elseif eventType == 8 
-                    if ~isfield(info, 'dataTypes') || any(cellfun(cellFind('point1D'), importParams.dataTypes))
+                    if ~isfield(importParams, 'dataTypes') || any(cellfun(cellFind('point1D'), importParams.dataTypes))
                         % First check if the array is big enough
                         currentLength = length(point1DValid);
                         if currentLength == 0
@@ -587,7 +606,7 @@ while true % implement the exit conditions inside the loop - allows to distingui
     %% Point2D
                 % Point2D events
                 elseif eventType == 9 
-                    if ~isfield(info, 'dataTypes') || any(cellfun(cellFind('point2D'), importParams.dataTypes))
+                    if ~isfield(importParams, 'dataTypes') || any(cellfun(cellFind('point2D'), importParams.dataTypes))
                         % First check if the array is big enough
                         currentLength = length(point2DValid);
                         if currentLength == 0
@@ -629,7 +648,7 @@ end
 % Calculate some basic stats
 %info.numEventsInFile 
 %info.endEvent
-if ~isfield(aedat.importParams, 'noData') || ~aedat.importParams.noData
+if ~isfield(importParams, 'noData') || ~importParams.noData
     outputData = struct;
 end
 
@@ -854,7 +873,7 @@ for eventType = max(eventTypesTemp): -1 : 0 % counting down means the array is o
 end
 
 %Pack the data into the output structure
-% aedat.importParams is already packed and should not have been changed
+% the unpacked importParams should not have been changed
 aedat.info = info;
 if exist ('outputData', 'var')
     aedat.data = outputData;

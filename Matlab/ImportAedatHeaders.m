@@ -198,5 +198,10 @@ else
 	info.source = 'Dvs128';
 end
 
+% Get the address space (dimensions) of the device
+info.deviceAddressSpace = ImportAedatDeviceAddressSpace(info.source);
+    
+
+
 % Pack the result (importParams is already in aedat and need not be packed
 aedat.info = info;

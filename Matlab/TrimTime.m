@@ -1,50 +1,96 @@
-function output = TrimData(input, startTime, endTime)
+function aedat = TrimTime(aedat, startTime, endTime, reZero)
 
 %{
 %}
 
 dbstop if error
 
-startTime = startTime * 1e6;
-endTime = endTime * 1e6;
+startTime = uint64(startTime * 1e6);
+endTime = uint64(endTime * 1e6);
+
+% Special
+
+if ~isfield(aedat, 'data')
+    disp('No data found')
+    return
+end
+if isfield(aedat.data, 'special')
+    keepLogical = aedat.data.special.timeStamp >= startTime & aedat.data.special.timeStamp <= endTime;
+    if exist('reZero', 'var') && reZero
+        aedat.data.special.timeStamp = aedat.data.special.timeStamp (keepLogical) - startTime;
+    else
+        aedat.data.special.timeStamp = aedat.data.special.timeStamp (keepLogical);
+    end
+    aedat.data.special.address       = aedat.data.special.address  (keepLogical);
+    if isfield(aedat.data.special, 'valid')
+        aedat.data.special.valid    = aedat.data.special.valid (keepLogical);
+    end
+end
+% Polarity
+
+if isfield(aedat.data, 'polarity')
+    keepLogical = aedat.data.polarity.timeStamp >= startTime & aedat.data.polarity.timeStamp <= endTime;
+    if exist('reZero', 'var') && reZero
+        aedat.data.polarity.timeStamp = aedat.data.polarity.timeStamp (keepLogical) - startTime;
+    else
+        aedat.data.polarity.timeStamp = aedat.data.polarity.timeStamp (keepLogical);
+    end
+    aedat.data.polarity.x           = aedat.data.polarity.x         (keepLogical);
+    aedat.data.polarity.y           = aedat.data.polarity.y         (keepLogical);
+    aedat.data.polarity.polarity    = aedat.data.polarity.polarity  (keepLogical);
+    aedat.data.polarity.numEvents   = nnz(keepLogical);
+    if isfield(aedat.data.polarity, 'valid')
+        aedat.data.polarity.valid    = aedat.data.polarity.valid (keepLogical);
+    end
+end
 
 % Frames
 
-keepLogical = input.data.frame.timeStampStart >= startTime & input.data.frame.timeStampStart <= endTime;
-
-input.data.frame.timeStampStart    = input.data.frame.timeStampStart  (keepLogical);
-input.data.frame.timeStampEnd      = input.data.frame.timeStampEnd    (keepLogical);
-input.data.frame.samples           = input.data.frame.samples         (keepLogical);
-input.data.frame.xLength           = input.data.frame.xLength         (keepLogical);
-input.data.frame.yLength           = input.data.frame.yLength         (keepLogical);
-input.data.frame.xPosition         = input.data.frame.xPosition       (keepLogical);
-input.data.frame.yPosition         = input.data.frame.yPosition       (keepLogical);
-input.data.frame.numEvents         = nnz(keepLogical);
-
-% Polarity
-
-keepLogical = input.data.polarity.timeStamp >= startTime & input.data.polarity.timeStamp <= endTime;
-
-input.data.polarity.timeStamp   = input.data.polarity.timeStamp (keepLogical);
-input.data.polarity.x           = input.data.polarity.x         (keepLogical);
-input.data.polarity.y           = input.data.polarity.y         (keepLogical);
-input.data.polarity.polarity    = input.data.polarity.polarity  (keepLogical);
-input.data.polarity.numEvents   = nnz(keepLogical);
-
+% This assumes that timestamps have been simplified to aedat2 standard, if
+% they came from aedat3 file
+if isfield(aedat.data, 'frame')
+    keepLogical = aedat.data.frame.timeStampStart >= startTime & aedat.data.frame.timeStampStart <= endTime;
+    if exist('reZero', 'var') && reZero
+        aedat.data.frame.timeStampStart = aedat.data.frame.timeStampStart   (keepLogical) - startTime;
+        aedat.data.frame.timeStampEnd   = aedat.data.frame.timeStampEnd     (keepLogical) - startTime;
+    else
+        aedat.data.frame.timeStampStart = aedat.data.frame.timeStampStart   (keepLogical);
+        aedat.data.frame.timeStampEnd   = aedat.data.frame.timeStampEnd     (keepLogical);
+    end
+    aedat.data.frame.samples           = aedat.data.frame.samples         (keepLogical);
+    aedat.data.frame.xLength           = aedat.data.frame.xLength         (keepLogical);
+    aedat.data.frame.yLength           = aedat.data.frame.yLength         (keepLogical);
+    aedat.data.frame.xPosition         = aedat.data.frame.xPosition       (keepLogical);
+    aedat.data.frame.yPosition         = aedat.data.frame.yPosition       (keepLogical);
+    aedat.data.frame.numEvents         = nnz(keepLogical);
+    if isfield(aedat.data.frame, 'valid')
+        aedat.data.frame.valid    = aedat.data.frame.valid (keepLogical);
+    end
+end
 % Imu6
 
-keepLogical = input.data.imu6.timeStamp >= startTime & input.data.imu6.timeStamp <= endTime;
+if isfield(aedat.data, 'imu6')
+    keepLogical = aedat.data.imu6.timeStamp >= startTime & aedat.data.imu6.timeStamp <= endTime;
+    if exist('reZero', 'var') && reZero
+        aedat.data.imu6.timeStamp = aedat.data.imu6.timeStamp (keepLogical) - startTime;
+    else
+        aedat.data.imu6.timeStamp = aedat.data.imu6.timeStamp (keepLogical);
+    end
+    aedat.data.imu6.accelX       = aedat.data.imu6.accelX (keepLogical);
+    aedat.data.imu6.accelY       = aedat.data.imu6.accelY (keepLogical);
+    aedat.data.imu6.accelZ       = aedat.data.imu6.accelZ (keepLogical);
+    aedat.data.imu6.gyroX        = aedat.data.imu6.gyroX (keepLogical);
+    aedat.data.imu6.gyroY        = aedat.data.imu6.gyroY (keepLogical);
+    aedat.data.imu6.gyroZ        = aedat.data.imu6.gyroZ (keepLogical);
+    aedat.data.imu6.temperature  = aedat.data.imu6.temperature (keepLogical);
+    aedat.data.imu6.numEvents    = nnz(keepLogical);
+    if isfield(aedat.data.imu6, 'valid')
+        aedat.data.imu6.valid    = aedat.data.imu6.valid (keepLogical);
+    end
+end
 
-input.data.imu6.timeStamp    = input.data.imu6.timeStamp (keepLogical);
-input.data.imu6.accelX       = input.data.imu6.accelX (keepLogical);
-input.data.imu6.accelY       = input.data.imu6.accelY (keepLogical);
-input.data.imu6.accelZ       = input.data.imu6.accelZ (keepLogical);
-input.data.imu6.gyroX        = input.data.imu6.gyroX (keepLogical);
-input.data.imu6.gyroY        = input.data.imu6.gyroY (keepLogical);
-input.data.imu6.gyroZ        = input.data.imu6.gyroZ (keepLogical);
-input.data.imu6.temperature  = input.data.imu6.temperature (keepLogical);
-input.data.imu6.numEvents    = nnz(keepLogical);
 
-% To do - correct first and last timestamp in info
+% To do: handle other event types
 
-output = input;
+% To do - correct first and last timestamp in info, also numPackets, ...
+% startTime, endTime, startPacket, endPacket, startEvent, endEvent

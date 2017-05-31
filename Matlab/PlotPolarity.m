@@ -1,5 +1,8 @@
 function PlotPolarity(input, numPlots, distributeBy, minTime, maxTime, proportionOfPixels, contrast, flipVertical, flipHorizontal, transpose)
 
+% Note that now Reorientate and FrameFromEvents functions provide some
+% of the needed functionality, this function could be rewritten...
+
 %{
 Takes 'input' - a data structure containing an imported .aedat file, 
 as created by ImportAedat, and creates a series of green/red plots of
