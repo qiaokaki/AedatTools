@@ -22,7 +22,7 @@ end
 if exist('endTime', 'var') && endTime > 0 
     endTime = endTime * 1e6;
 else
-    startTime = input.info.lastTimeStamp;
+    endTime = input.info.lastTimeStamp;
 end
 
 durationUs = double(endTime - startTime);

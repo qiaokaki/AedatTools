@@ -427,7 +427,7 @@ while true % implement the exit conditions inside the loop - allows to distingui
                             frameSamples				= cell(eventNumber, 1);
                         else	
                             while eventNumber > currentLength - frameNumEvents
-                                frameValid					= [frameValid; false(eventNumber, 1)];
+                                frameValid					= [frameValid;                  false(currentLength, 1)];
                                 frameColorChannels			= [frameColorChannels;			uint8(zeros(currentLength, 1))];
                                 frameColorFilter			= [frameColorFilter;			uint8(zeros(currentLength, 1))];
                                 frameRoiId					= [frameRoiId;					uint8(zeros(currentLength, 1))];

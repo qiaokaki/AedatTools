@@ -77,7 +77,7 @@ if numel(distributeBy) > 1 % distributeBy is a vector of the frameCentreTimes
         error('If you provide the frameCentreTimes in the "distributeBy" parameter, then the number of elements must match the numFrames parameter')
     end
     frameCentreTimes = uint64(distributeBy * 1e6); % assume that it is given in secs
-    frameBoundaryTimes = uint64([minTime frameCentreTimes(1 : end - 1) + frameCentreTimes(2 : end) / 2 maxTime]);
+    frameBoundaryTimes = uint64([minTime (frameCentreTimes(1 : end - 1) + frameCentreTimes(2 : end)) / 2 maxTime]);
 else
     if strcmpi(distributeBy, 'time')
         totalTime = maxTime - minTime;
