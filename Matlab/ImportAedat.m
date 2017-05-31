@@ -1,4 +1,4 @@
-function output = ImportAedat(varargin)
+function aedat = ImportAedat(aedat)
 
 %{
 This function imports data from a .aedat file (as well as any attached prefs files). 
@@ -198,41 +198,39 @@ The output is a structure with the following fields:
 dbstop if error
 
 % If the input variable doesn't exist, create a dummy one.
-if nargin==0
-	info = struct;
-else
-	info = varargin{1};
+if ~exist('aedat', 'var') 
+    aedat = struct;
 end
 
 % Open the file
-if ~isfield(info, 'filePath')
+if ~isfield(aedat, 'importParams') || ~isfield(aedat.importParams, 'filePath')
 	[fileName path ~] = uigetfile('*.aedat','Select aedat file');
     if fileName==0
 		disp('File to import not specified')
 		return
 	end
-	info.filePath = [path fileName];
+	aedat.importParams.filePath = [path fileName];
 end
 
-info.fileHandle = fopen(info.filePath, 'r');
+aedat.importParams.fileHandle = fopen(aedat.importParams.filePath, 'r');
 
-if info.fileHandle == -1
+if aedat.importParams.fileHandle == -1
     error('file not found')
 end
 
 % Process the headers if they haven't been processed already
-if ~isfield(info, 'packetPointers')
-    info = ImportAedatHeaders(info);
+% The 'info' field is created by the ImportAedatHeaders function 
+if ~isfield(aedat, 'info')
+    aedat = ImportAedatHeaders(aedat);
 end
 
 % Process the data - different subfunctions handle fileFormat 2 vs 3
-if info.fileFormat < 3
-	output = ImportAedatDataVersion1or2(info);
+if aedat.info.fileFormat < 3
+	aedat = ImportAedatDataVersion1or2(aedat);
 else
-	output = ImportAedatDataVersion3(info);	
+	aedat = ImportAedatDataVersion3(aedat);	
 end
 
-fclose(output.info.fileHandle);
-
-
+fclose(aedat.importParams.fileHandle);
+aedat.importParams = rmfield(aedat.importParams, 'fileHandle');
 

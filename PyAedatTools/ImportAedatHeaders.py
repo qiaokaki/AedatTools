@@ -10,6 +10,9 @@ http://inilabs.com/support/software/fileformat/
 - Reading from a separate prefs file is not implemented yet.  
 - It would be neater (more readable) to turn the xml cell array into a
     structure.
+
+Code contributions from Bodo Rueckhauser
+
 """
 
 from PyAedatTools.ImportAedatBasicSourceName import ImportAedatBasicSourceName 

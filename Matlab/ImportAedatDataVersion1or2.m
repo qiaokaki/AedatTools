@@ -1,5 +1,7 @@
-function output = ImportAedatDataVersion1or2(info)
+function aedat = ImportAedatDataVersion1or2(aedat)
 %{
+Code contributions from Gemma Taverni.
+
 This is a sub-function of importAedat - it process the data where the aedat 
 file format is determined to be 1 or 2. 
 The .aedat file format is documented here:
@@ -121,6 +123,8 @@ non-monotonic timestamps.
 
 dbstop if error
 
+info = aedat.info;
+
 % The fileFormat dictates whether there are 6 or 8 bytes per event. 
 if info.fileFormat == 1
 	numBytesPerAddress = 2;
@@ -132,30 +136,27 @@ else
 	addrPrecision = 'uint32';
 end
 
-fileHandle = info.fileHandle;
+fileHandle = aedat.importParams.fileHandle;
 
 % Go to the EOF to find out how long it is
-fseek(info.fileHandle, 0, 'eof');
+fseek(fileHandle, 0, 'eof');
 
 % Calculate the number of events
-info.numEventsInFile = floor((ftell(info.fileHandle) - info.beginningOfDataPointer) / numBytesPerEvent);
+info.numEventsInFile = floor((ftell(fileHandle) - info.beginningOfDataPointer) / numBytesPerEvent);
 
 % Check the startEvent and endEvent parameters
-if ~isfield(info, 'startEvent')
-	info.startEvent = 1;
+if isfield(importParams, 'startEvent')
+    info.startEvent = importParams.startEvent;
+else
+    info.startEvent = 1;
 end
 if info.startEvent > info.numEventsInFile
 	error([	'The file contains ' num2str(info.numEventsInFile) ...
 			'; the startEvent parameter is ' num2str(info.startEvent) ]);
 end
-if ~isfield(info, 'endEvent')	
+if isfield(importParams, 'endEvent')	
+	info.endEvent = importParams.numEventsInFile;
 	info.endEvent = info.numEventsInFile;
-end
-if isfield(info, 'startPacket')
-	error('The startPacket parameter is set, but range by packets is not available for .aedat version < 3 files')
-end
-if isfield(info, 'endPacket')
-	error('The endPacket parameter is set, but range by events is not available for .aedat version < 3 files')
 end
 	
 if info.endEvent > info.numEventsInFile
@@ -169,17 +170,24 @@ if info.startEvent >= info.endEvent
 		', but the endEvent parameter is ' num2str(info.endEvent) ]);
 end
 
+if isfield(importParams, 'startPacket')
+	error('The startPacket parameter is set, but range by packets is not available for .aedat version < 3 files')
+end
+if isfield(importParams, 'endPacket')
+	error('The endPacket parameter is set, but range by events is not available for .aedat version < 3 files')
+end
+
 numEventsToRead = info.endEvent - info.startEvent + 1;
 
 % Read addresses
 disp('Reading addresses ...')
-fseek(info.fileHandle, info.beginningOfDataPointer + numBytesPerEvent * info.startEvent, 'bof'); 
-allAddr = uint32(fread(info.fileHandle, numEventsToRead, addrPrecision, 4, 'b'));
+fseek(fileHandle, info.beginningOfDataPointer + numBytesPerEvent * info.startEvent, 'bof'); 
+allAddr = uint32(fread(fileHandle, numEventsToRead, addrPrecision, 4, 'b'));
 
 % Read timestamps
 disp('Reading timestamps ...')
-fseek(info.fileHandle, info.beginningOfDataPointer + numBytesPerEvent * info.startEvent + numBytesPerAddress, 'bof');
-allTs = uint32(fread(info.fileHandle, numEventsToRead, addrPrecision, numBytesPerAddress, 'b'));
+fseek(fileHandle, info.beginningOfDataPointer + numBytesPerEvent * info.startEvent + numBytesPerAddress, 'bof');
+allTs = uint32(fread(fileHandle, numEventsToRead, addrPrecision, numBytesPerAddress, 'b'));
 
 % Trim events outside time window
 % This is an inefficent implementation, which allows for
@@ -225,7 +233,7 @@ end
 cellFind = @(string)(@(cellContents)(strcmp(string, cellContents)));
 
 % Create structure to put all the data in 
-output.data = struct;
+data = struct;
 
 if strcmp(info.source, 'Das1')
 	% DAS1 
@@ -234,33 +242,33 @@ if strcmp(info.source, 'Das1')
 	earLogical = ~sampleLogical;
 	if (~isfield(info, 'dataTypes') || any(cellfun(cellFind('ear'), info.dataTypes))) && any(sampleLogical)
 		% ADC Samples
-		output.data.sample.timeStamp = allTs(sampleLogical);
+		data.sample.timeStamp = allTs(sampleLogical);
 		% Sample type
 		sampleTypeMask = hex2dec('1c00'); % take ADC scanner sync and ADC channel together for this value - kludge - the alternative would be to introduce a special event type to represent the scanner wrapping around
 		sampleTypeShiftBits = 10;
-		output.data.sample.sampleType = uint8(bitshift(bitand(allAddr(sampleLogical), sampleTypeMask), -sampleTypeShiftBits));
+		data.sample.sampleType = uint8(bitshift(bitand(allAddr(sampleLogical), sampleTypeMask), -sampleTypeShiftBits));
 		% Sample data
 		sampleDataMask = hex2dec('3FF'); % take ADC scanner sync and ADC channel together for this value - kludge - the alternative would be to introduce a special event type to represent the scanner wrapping around
-		output.data.sample.sample = uint32(bitand(allAddr(sampleLogical), sampleTypeMask));
+		data.sample.sample = uint32(bitand(allAddr(sampleLogical), sampleTypeMask));
 	end
 	if (~isfield(info, 'dataTypes') || any(cellfun(cellFind('ear'), info.dataTypes))) && any(earLogical)
 		% EAR events
-		output.data.ear.timeStamp = allTs(earLogical); 
+		data.ear.timeStamp = allTs(earLogical); 
 		% Filter (0 = BPF, 1 = SOS)
 		filterMask     = hex2dec('0001');
-		output.data.ear.filter = uint8(bitand(allAddr, filterMask));
+		data.ear.filter = uint8(bitand(allAddr, filterMask));
 		% Position (0 = left; 1 = right)
 		positionMask   = hex2dec('0002');
 		positionShiftBits = 1;
-		output.data.ear.position = uint8(bitshift(bitand(allAddr, positionMask), -positionShiftBits));
+		data.ear.position = uint8(bitshift(bitand(allAddr, positionMask), -positionShiftBits));
 		% Channel (0 (high freq) to 63 (low freq))
 		channelMask = hex2dec('00FC');
 		channelShiftBits = 2;
-		output.data.ear.channel = uint16(bitshift(bitand(allAddr, channelMask), -channelShiftBits));
+		data.ear.channel = uint16(bitshift(bitand(allAddr, channelMask), -channelShiftBits));
 		% Neuron (in the range 0-3)
 		neuronMask  = hex2dec('0300'); 
 		neuronShiftBits = 8;
-		output.data.ear.neuron = uint8(bitshift(bitand(allAddr, neuronMask), -neuronShiftBits));
+		data.ear.neuron = uint8(bitshift(bitand(allAddr, neuronMask), -neuronShiftBits));
 	end
 	
 elseif strcmp(info.source, 'Dvs128')
@@ -270,23 +278,23 @@ elseif strcmp(info.source, 'Dvs128')
 	polarityLogical = ~specialLogical;
 	if (~isfield(info, 'dataTypes') || any(cellfun(cellFind('special'), info.dataTypes))) && any(specialLogical)
 		% Special events
-		output.data.special.timeStamp = allTs(specialLogical);
+		data.special.timeStamp = allTs(specialLogical);
 		% No need to create address field, since there is only one type of special event
 	end
 	if (~isfield(info, 'dataTypes') || any(cellfun(cellFind('polarity'), info.dataTypes))) && any(polarityLogical)
 		% Polarity events
-		output.data.polarity.timeStamp = allTs(polarityLogical); % Use the negation of the special mask for polarity events
+		data.polarity.timeStamp = allTs(polarityLogical); % Use the negation of the special mask for polarity events
 		% Y addresses
 		yMask = hex2dec('7F00');
 		yShiftBits = 8;
-		output.data.polarity.y = uint16(bitshift(bitand(allAddr(polarityLogical), yMask), -yShiftBits));
+		data.polarity.y = uint16(bitshift(bitand(allAddr(polarityLogical), yMask), -yShiftBits));
 		% X addresses
 		xMask = hex2dec('fE');
 		xShiftBits = 1;
-		output.data.polarity.x = uint16(bitshift(bitand(allAddr(polarityLogical), xMask), -xShiftBits));
+		data.polarity.x = uint16(bitshift(bitand(allAddr(polarityLogical), xMask), -xShiftBits));
 		% Polarity bit
 		polBit = 1;
-		output.data.polarity.polarity = bitget(allAddr(polarityLogical), polBit) == 1;
+		data.polarity.polarity = bitget(allAddr(polarityLogical), polBit) == 1;
 	end					
 elseif strfind(info.source, 'Davis') 
 	% DAVIS
@@ -316,21 +324,21 @@ elseif strfind(info.source, 'Davis')
 	% Special events
 	if (~isfield(info, 'dataTypes') || any(cellfun(cellFind('special'), info.dataTypes))) && any(specialLogical)
 		disp('Importing special events ...')
-        output.data.special.timeStamp = allTs(specialLogical);
+        data.special.timeStamp = allTs(specialLogical);
 		% No need to create address field, since there is only one type of special event
 	end
 	
 	% Polarity (DVS) events
 	if (~isfield(info, 'dataTypes') || any(cellfun(cellFind('polarity'), info.dataTypes))) && any(polarityLogical)
 		disp('Importing polarity events ...')
-		output.data.polarity.timeStamp = allTs(polarityLogical);
+		data.polarity.timeStamp = allTs(polarityLogical);
 		% Y addresses
-		output.data.polarity.y = uint16(bitshift(bitand(allAddr(polarityLogical), yMask), -yShiftBits));
+		data.polarity.y = uint16(bitshift(bitand(allAddr(polarityLogical), yMask), -yShiftBits));
 		% X addresses
-		output.data.polarity.x = uint16(bitshift(bitand(allAddr(polarityLogical), xMask), -xShiftBits));
+		data.polarity.x = uint16(bitshift(bitand(allAddr(polarityLogical), xMask), -xShiftBits));
 		% Polarity bit
 		polBit = 12;		
-		output.data.polarity.polarity = bitget(allAddr(polarityLogical), polBit) == 1;
+		data.polarity.polarity = bitget(allAddr(polarityLogical), polBit) == 1;
 	end	
 	
 	% Frame events - NOTE This code currently only handles global shutter
@@ -364,34 +372,34 @@ elseif strfind(info.source, 'Davis')
 		% an additional index just beyond the end of the array
 		numFrames = length(frameStarts) - 1;
 		
-		output.data.frame.reset = false(numFrames, 1);
-		output.data.frame.timeStampStart = zeros(numFrames, 1);
-		output.data.frame.timeStampEnd = zeros(numFrames, 1);
-		output.data.frame.samples = cell(numFrames, 1);
-		output.data.frame.xLength = zeros(numFrames, 1);
-		output.data.frame.yLength = zeros(numFrames, 1);
-		output.data.frame.xPosition = zeros(numFrames, 1);
-		output.data.frame.yPosition = zeros(numFrames, 1);
+		data.frame.reset = false(numFrames, 1);
+		data.frame.timeStampStart = zeros(numFrames, 1);
+		data.frame.timeStampEnd = zeros(numFrames, 1);
+		data.frame.samples = cell(numFrames, 1);
+		data.frame.xLength = zeros(numFrames, 1);
+		data.frame.yLength = zeros(numFrames, 1);
+		data.frame.xPosition = zeros(numFrames, 1);
+		data.frame.yPosition = zeros(numFrames, 1);
 		
 		for frameIndex = 1 : numFrames
 			disp(['Processing frame ' num2str(frameIndex)])
 			% All within a frame should be either reset or signal. I could
 			% implement a check here to see that that's true, but I haven't
 			% done so; rather I just take the firswt value
-			output.data.frame.reset(frameIndex) = ~frameSignal(frameStarts(frameIndex)); 
+			data.frame.reset(frameIndex) = ~frameSignal(frameStarts(frameIndex)); 
 			
 			% in aedat 2 format we don't have the four timestamps of aedat 3 format
 			% We expect to find all the same timestamps; 
 			% nevertheless search for lowest and highest
-			output.data.frame.timeStampStart(frameIndex) = min(frameTs(frameStarts(frameIndex) : frameStarts(frameIndex + 1) - 1)); 
-			output.data.frame.timeStampEnd(frameIndex) = max(frameTs(frameStarts(frameIndex) : frameStarts(frameIndex + 1) - 1)); 
+			data.frame.timeStampStart(frameIndex) = min(frameTs(frameStarts(frameIndex) : frameStarts(frameIndex + 1) - 1)); 
+			data.frame.timeStampEnd(frameIndex) = max(frameTs(frameStarts(frameIndex) : frameStarts(frameIndex + 1) - 1)); 
 
 			tempXPosition = min(frameX(frameStarts(frameIndex) : frameStarts(frameIndex + 1) - 1));
-			output.data.frame.xPosition(frameIndex) = tempXPosition;
+			data.frame.xPosition(frameIndex) = tempXPosition;
 			tempYPosition = min(frameY(frameStarts(frameIndex) : frameStarts(frameIndex + 1) - 1));
-			output.data.frame.yPosition(frameIndex) = tempYPosition;
-			output.data.frame.xLength(frameIndex) = max(frameX(frameStarts(frameIndex) : frameStarts(frameIndex + 1) - 1)) - output.data.frame.xPosition(frameIndex) + 1;
-			output.data.frame.yLength(frameIndex) = max(frameY(frameStarts(frameIndex) : frameStarts(frameIndex + 1) - 1)) - output.data.frame.yPosition(frameIndex) + 1;
+			data.frame.yPosition(frameIndex) = tempYPosition;
+			data.frame.xLength(frameIndex) = max(frameX(frameStarts(frameIndex) : frameStarts(frameIndex + 1) - 1)) - data.frame.xPosition(frameIndex) + 1;
+			data.frame.yLength(frameIndex) = max(frameY(frameStarts(frameIndex) : frameStarts(frameIndex + 1) - 1)) - data.frame.yPosition(frameIndex) + 1;
 			% If we worked out which way the data is ramping in each
 			% direction, and if we could exclude data loss, then we could
 			% do some nice clean matrix transformations; but I'm just going
@@ -400,74 +408,74 @@ elseif strfind(info.source, 'Davis')
 			
 			% first create a temporary array - there is no concept of
 			% colour channels in aedat2
-			tempSamples = zeros(output.data.frame.yLength(frameIndex), output.data.frame.xLength(frameIndex), 'uint16');
+			tempSamples = zeros(data.frame.yLength(frameIndex), data.frame.xLength(frameIndex), 'uint16');
 			for sampleIndex = frameStarts(frameIndex) : frameStarts(frameIndex + 1) - 1
-				tempSamples(frameY(sampleIndex) - output.data.frame.yPosition(frameIndex) + 1, ...
-							frameX(sampleIndex) - output.data.frame.xPosition(frameIndex) + 1) ...
+				tempSamples(frameY(sampleIndex) - data.frame.yPosition(frameIndex) + 1, ...
+							frameX(sampleIndex) - data.frame.xPosition(frameIndex) + 1) ...
 							= frameSample(sampleIndex);
 			end
-			output.data.frame.samples{frameIndex} = tempSamples;
+			data.frame.samples{frameIndex} = tempSamples;
 		end	
 		% By default, subtract the reset read 
 		if ~isfield(info, 'subtractResetRead')
             info.subtractResetRead = true;
         end
-		if info.subtractResetRead && isfield(output.data.frame, 'reset')
+		if info.subtractResetRead && isfield(data.frame, 'reset')
             disp('Performing frame subtraction ...')    
 			% Make a second pass through the frames, subtracting reset
 			% reads from signal reads
 			frameCount = 0;
 			for frameIndex = 1 : numFrames
-				if output.data.frame.reset(frameIndex) 
-					resetFrame = output.data.frame.samples{frameIndex};
-					resetXPosition = output.data.frame.xPosition(frameIndex);
-					resetYPosition = output.data.frame.yPosition(frameIndex);
-					resetXLength = output.data.frame.xLength(frameIndex);
-					resetYLength = output.data.frame.yLength(frameIndex);					
+				if data.frame.reset(frameIndex) 
+					resetFrame = data.frame.samples{frameIndex};
+					resetXPosition = data.frame.xPosition(frameIndex);
+					resetYPosition = data.frame.yPosition(frameIndex);
+					resetXLength = data.frame.xLength(frameIndex);
+					resetYLength = data.frame.yLength(frameIndex);					
 				else
 					frameCount = frameCount + 1;
 					% If a resetFrame has not yet been found, 
 					% push through the signal frame as is
 					if ~exist('resetFrame', 'var')
-						output.data.frame.samples{frameCount} ...
-							= output.data.frame.samples{frameIndex};
+						data.frame.samples{frameCount} ...
+							= data.frame.samples{frameIndex};
 					else
 						% If the resetFrame and signalFrame are not the same size,	
 						% don't attempt subtraction 
 						% (there is probably a cleaner solution than this - could be improved)
-						if resetXPosition ~= output.data.frame.xPosition(frameIndex) ...
-							|| resetYPosition ~= output.data.frame.yPosition(frameIndex) ...
-							|| resetXLength ~= output.data.frame.xLength(frameIndex) ...
-							|| resetYLength ~= output.data.frame.yLength(frameIndex)
-							output.data.frame.samples{frameCount} ...
-								= output.data.frame.samples{frameIndex};
+						if resetXPosition ~= data.frame.xPosition(frameIndex) ...
+							|| resetYPosition ~= data.frame.yPosition(frameIndex) ...
+							|| resetXLength ~= data.frame.xLength(frameIndex) ...
+							|| resetYLength ~= data.frame.yLength(frameIndex)
+							data.frame.samples{frameCount} ...
+								= data.frame.samples{frameIndex};
 						else
 							% Do the subtraction
-							output.data.frame.samples{frameCount} ...
-								= resetFrame - output.data.frame.samples{frameIndex};
+							data.frame.samples{frameCount} ...
+								= resetFrame - data.frame.samples{frameIndex};
                                 			% This operation was on unsigned integers, set negatives to zero
-                                			output.data.frame.samples{frameCount}(output.data.frame.samples{frameCount} > 32767) = 0;
+                                			data.frame.samples{frameCount}(data.frame.samples{frameCount} > 32767) = 0;
 
 						end
 						% Copy over the reset of the info
-						output.data.frame.xPosition(frameCount) = output.data.frame.xPosition(frameIndex);
-						output.data.frame.yPosition(frameCount) = output.data.frame.yPosition(frameIndex);
-						output.data.frame.xLength(frameCount) = output.data.frame.xLength(frameIndex);
-						output.data.frame.yLength(frameCount) = output.data.frame.yLength(frameIndex);
-						output.data.frame.timeStampStart(frameCount) = output.data.frame.timeStampStart(frameIndex); 
-						output.data.frame.timeStampEnd(frameCount) = output.data.frame.timeStampEnd(frameIndex); 							
+						data.frame.xPosition(frameCount) = data.frame.xPosition(frameIndex);
+						data.frame.yPosition(frameCount) = data.frame.yPosition(frameIndex);
+						data.frame.xLength(frameCount) = data.frame.xLength(frameIndex);
+						data.frame.yLength(frameCount) = data.frame.yLength(frameIndex);
+						data.frame.timeStampStart(frameCount) = data.frame.timeStampStart(frameIndex); 
+						data.frame.timeStampEnd(frameCount) = data.frame.timeStampEnd(frameIndex); 							
 					end
 				end
 			end
 			% Clip the arrays
-			output.data.frame.xPosition = output.data.frame.xPosition(1 : frameCount);
-			output.data.frame.yPosition = output.data.frame.yPosition(1 : frameCount);
-			output.data.frame.xLength = output.data.frame.xLength(1 : frameCount);
-			output.data.frame.yLength = output.data.frame.yLength(1 : frameCount);
-			output.data.frame.timeStampStart = output.data.frame.timeStampStart(1 : frameCount);
-			output.data.frame.timeStampEnd = output.data.frame.timeStampEnd(1 : frameCount);
-			output.data.frame.samples = output.data.frame.samples(1 : frameCount);
-			output.data.frame = rmfield(output.data.frame, 'reset'); % reset is no longer needed
+			data.frame.xPosition = data.frame.xPosition(1 : frameCount);
+			data.frame.yPosition = data.frame.yPosition(1 : frameCount);
+			data.frame.xLength = data.frame.xLength(1 : frameCount);
+			data.frame.yLength = data.frame.yLength(1 : frameCount);
+			data.frame.timeStampStart = data.frame.timeStampStart(1 : frameCount);
+			data.frame.timeStampEnd = data.frame.timeStampEnd(1 : frameCount);
+			data.frame.samples = data.frame.samples(1 : frameCount);
+			data.frame = rmfield(data.frame, 'reset'); % reset is no longer needed
 		end
 	end
 	% IMU events
@@ -481,8 +489,8 @@ elseif strfind(info.source, 'Davis')
             % There's a problem here, but chop off the last words and hope
             % for the best ...
 		end
-		output.data.imu6.timeStamp = allTs(imuLogical);
-		output.data.imu6.timeStamp = output.data.imu6.timeStamp(1 : 7 : end - mod(nnz(imuLogical), 7));
+		data.imu6.timeStamp = allTs(imuLogical);
+		data.imu6.timeStamp = data.imu6.timeStamp(1 : 7 : end - mod(nnz(imuLogical), 7));
 
 		%Conversion factors
 		accelScale = 1/8192;
@@ -497,13 +505,13 @@ elseif strfind(info.source, 'Davis')
 		rawData = uint16(rawData);
         rawData = typecast(rawData, 'int16');
 				
-		output.data.imu6.accelX			= rawData(1 : 7 : end - mod(nnz(imuLogical), 7)) * accelScale;	
-		output.data.imu6.accelY			= rawData(2 : 7 : end - mod(nnz(imuLogical), 7)) * accelScale;	
-		output.data.imu6.accelZ			= rawData(3 : 7 : end - mod(nnz(imuLogical), 7)) * accelScale;	
-		output.data.imu6.temperature	= rawData(4 : 7 : end - mod(nnz(imuLogical), 7)) * temperatureScale + temperatureOffset;	
-		output.data.imu6.gyroX			= rawData(5 : 7 : end - mod(nnz(imuLogical), 7)) * gyroScale;	
-		output.data.imu6.gyroY			= rawData(6 : 7 : end - mod(nnz(imuLogical), 7)) * gyroScale;	
-		output.data.imu6.gyroZ			= rawData(7 : 7 : end - mod(nnz(imuLogical), 7)) * gyroScale;	
+		data.imu6.accelX			= rawData(1 : 7 : end - mod(nnz(imuLogical), 7)) * accelScale;	
+		data.imu6.accelY			= rawData(2 : 7 : end - mod(nnz(imuLogical), 7)) * accelScale;	
+		data.imu6.accelZ			= rawData(3 : 7 : end - mod(nnz(imuLogical), 7)) * accelScale;	
+		data.imu6.temperature	= rawData(4 : 7 : end - mod(nnz(imuLogical), 7)) * temperatureScale + temperatureOffset;	
+		data.imu6.gyroX			= rawData(5 : 7 : end - mod(nnz(imuLogical), 7)) * gyroScale;	
+		data.imu6.gyroY			= rawData(6 : 7 : end - mod(nnz(imuLogical), 7)) * gyroScale;	
+		data.imu6.gyroZ			= rawData(7 : 7 : end - mod(nnz(imuLogical), 7)) * gyroScale;	
 		
 	end
 
@@ -514,66 +522,68 @@ end
 
 disp('Augmenting info ...')
 
-output.info = info;
-
 % calculate numEvents fields; also find first and last timeStamps
-output.info.firstTimeStamp = inf;
-output.info.lastTimeStamp = 0;
+info.firstTimeStamp = inf;
+info.lastTimeStamp = 0;
 
-if isfield(output.data, 'special')
-	output.data.special.numEvents = length(output.data.special.timeStamp);
-	if output.data.special.timeStamp(1) < output.info.firstTimeStamp
-		output.info.firstTimeStamp = output.data.special.timeStamp(1);
+if isfield(data, 'special')
+	data.special.numEvents = length(data.special.timeStamp);
+	if data.special.timeStamp(1) < info.firstTimeStamp
+		info.firstTimeStamp = data.special.timeStamp(1);
 	end
-	if output.data.special.timeStamp(end) > output.info.lastTimeStamp
-		output.info.lastTimeStamp = output.data.special.timeStamp(end);
-	end
-end
-if isfield(output.data, 'polarity')
-	output.data.polarity.numEvents = length(output.data.polarity.timeStamp);
-	if output.data.polarity.timeStamp(1) < output.info.firstTimeStamp
-		output.info.firstTimeStamp = output.data.polarity.timeStamp(1);
-	end
-	if output.data.polarity.timeStamp(end) > output.info.lastTimeStamp
-		output.info.lastTimeStamp = output.data.polarity.timeStamp(end);
+	if data.special.timeStamp(end) > info.lastTimeStamp
+		info.lastTimeStamp = data.special.timeStamp(end);
 	end
 end
-if isfield(output.data, 'frame')
-	output.data.frame.numEvents = length(output.data.frame.timeStampStart);
-	if output.data.frame.timeStampStart(1) < output.info.firstTimeStamp
-		output.info.firstTimeStamp = output.data.frame.timeStampStart(1);
+if isfield(data, 'polarity')
+	data.polarity.numEvents = length(data.polarity.timeStamp);
+	if data.polarity.timeStamp(1) < info.firstTimeStamp
+		info.firstTimeStamp = data.polarity.timeStamp(1);
 	end
-	if output.data.frame.timeStampEnd(end) > output.info.lastTimeStamp
-		output.info.lastTimeStamp = output.data.frame.timeStampEnd(end);
-	end
-end
-if isfield(output.data, 'imu6')
-	output.data.imu6.numEvents = length(output.data.imu6.timeStamp);
-	if output.data.imu6.timeStamp(1) < output.info.firstTimeStamp
-		output.info.firstTimeStamp = output.data.imu6.timeStamp(1);
-	end
-	if output.data.imu6.timeStamp(end) > output.info.lastTimeStamp
-		output.info.lastTimeStamp = output.data.imu6.timeStamp(end);
+	if data.polarity.timeStamp(end) > info.lastTimeStamp
+		info.lastTimeStamp = data.polarity.timeStamp(end);
 	end
 end
-if isfield(output.data, 'sample')
-	output.data.sample.numEvents = length(output.data.sample.timeStamp);
-	if output.data.sample.timeStamp(1) < output.info.firstTimeStamp
-		output.info.firstTimeStamp = output.data.sample.timeStamp(1);
+if isfield(data, 'frame')
+	data.frame.numEvents = length(data.frame.timeStampStart);
+	if data.frame.timeStampStart(1) < info.firstTimeStamp
+		info.firstTimeStamp = data.frame.timeStampStart(1);
 	end
-	if output.data.sample.timeStamp(end) > output.info.lastTimeStamp
-		output.info.lastTimeStamp = output.data.sample.timeStamp(end);
-	end
-end
-if isfield(output.data, 'ear')
-	output.data.ear.numEvents = length(output.data.ear.timeStamp);
-	if output.data.ear.timeStamp(1) < output.info.firstTimeStamp
-		output.info.firstTimeStamp = output.data.ear.timeStamp(1);
-	end
-	if output.data.ear.timeStamp(end) > output.info.lastTimeStamp
-		output.info.lastTimeStamp = output.data.ear.timeStamp(end);
+	if data.frame.timeStampEnd(end) > info.lastTimeStamp
+		info.lastTimeStamp = data.frame.timeStampEnd(end);
 	end
 end
+if isfield(data, 'imu6')
+	data.imu6.numEvents = length(data.imu6.timeStamp);
+	if data.imu6.timeStamp(1) < info.firstTimeStamp
+		info.firstTimeStamp = data.imu6.timeStamp(1);
+	end
+	if data.imu6.timeStamp(end) > info.lastTimeStamp
+		info.lastTimeStamp = data.imu6.timeStamp(end);
+	end
+end
+if isfield(data, 'sample')
+	data.sample.numEvents = length(data.sample.timeStamp);
+	if data.sample.timeStamp(1) < info.firstTimeStamp
+		info.firstTimeStamp = data.sample.timeStamp(1);
+	end
+	if data.sample.timeStamp(end) > info.lastTimeStamp
+		info.lastTimeStamp = data.sample.timeStamp(end);
+	end
+end
+if isfield(data, 'ear')
+	data.ear.numEvents = length(data.ear.timeStamp);
+	if data.ear.timeStamp(1) < info.firstTimeStamp
+		info.firstTimeStamp = data.ear.timeStamp(1);
+	end
+	if data.ear.timeStamp(end) > info.lastTimeStamp
+		info.lastTimeStamp = data.ear.timeStamp(end);
+	end
+end
+
+% aedat.importParams is already there and should be unchanged
+aedat.info = info;
+aedat.data = data;
 
 disp('Import finished')
 

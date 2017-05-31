@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 
-"""Import basic source name"""
+"""
+Import basic source name
+
+Code contributions from Bodo Rueckhauser
+"""
 
 
 def ImportAedatBasicSourceName(inp):

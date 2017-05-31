@@ -1,4 +1,4 @@
-function info = ImportAedatHeaders(info)
+function aedat = ImportAedatHeaders(aedat)
 
 %{
 This is a sub-function of importAedat. 
@@ -79,12 +79,17 @@ The output is the same "info" structure; it has the following additional or
 
 dbstop if error
 
+importParams = aedat.importParams;
+fileHandle = aedat.importParams.fileHandle;
+
+info = struct;
+
 % Start from the beginning of the file (should not be necessary)
-frewind(info.fileHandle);
-info.beginningOfDataPointer = ftell(info.fileHandle); 
+frewind(fileHandle);
+info.beginningOfDataPointer = ftell(fileHandle); 
 
 % Read the first line to determine file format
-line = native2unicode(fgets(info.fileHandle));
+line = native2unicode(fgets(fileHandle));
 versionPrefix = '#!AER-DAT';
 if strncmp(line, versionPrefix, length(versionPrefix))
 	info.fileFormat = sscanf(line(length(versionPrefix) + 1 : end), '%f');
@@ -101,7 +106,7 @@ while line(1)=='#'
     fprintf('%s\n',line(1:end-2)); % Debugging only, or could perhaps be used in a verbose mode - print line using \n for newline, discarding CRLF written by java under windows
 
 	% When exiting the while loop, this pointer points to the byte before the start of the actual data
-    info.beginningOfDataPointer = ftell(info.fileHandle); 
+    info.beginningOfDataPointer = ftell(fileHandle); 
 	
 	% Strip off # and initial spaces, and trailing /r/n
 	line = strtrim(line(2:end-2));
@@ -109,9 +114,12 @@ while line(1)=='#'
 	% Pick out the source
 	% Version 2.0 encodes it like this:
 	if strncmp(line, 'AEChip: ', 8)
-		% Ignore everything the class path and only use what follows the final dot 
-		startPrefix = find(line==':', 1, 'last');
-		info.sourceFromFile = ImportAedatBasicSourceName(line(startPrefix + 2 : end));
+		% Ignore the class path and only use what follows the final dot 
+		startPrefix = find(line=='.', 1, 'last');
+        if isempty(startPrefix)
+            startPrefix = 8;
+        end
+		sourceFromFile = ImportAedatBasicSourceName(line(startPrefix + 1 : end));
 	end
 	% Version 3.0 encodes it like this
 	% The following ignores any trace of previous sources (prefixed with a minus sign)
@@ -120,12 +128,13 @@ while line(1)=='#'
 		if isfield(info, 'sourceFromFile')
 			% One source has already been added; convert to a cell array if
 			% it has not already been done
+            % THIS NEEDS RETHINKING
 			if ~iscell(info.sourceFromFile)
 				info.sourceFromFile = {info.sourceFromFile};
 			end
 			info.sourceFromFile = [info.sourceFromFile line(startPrefix + 2 : end)];
 		else
-			info.sourceFromFile = line(startPrefix + 2 : end);
+			sourceFromFile = line(startPrefix + 2 : end);
 		end		
 	end
 
@@ -172,23 +181,27 @@ while line(1)=='#'
 		info.xml{end + 1} = {key value};
 	end
 	% Gets the next line, including line ending chars
-    line = native2unicode(fgets(info.fileHandle)); 
+    line = native2unicode(fgets(fileHandle)); 
 end
 	
 % If a device is specified in input, does it match the derived source?
-if isfield(info, 'source')
-	info.source = ImportAedatBasicSourceName(info.source);
-	if isfield(info, 'sourceFromFile') && ~strcmp(info.source, info.sourceFromFile)
-		fprintf('The source given as input, "%s", doesn''t match the source declared in the file, "%s"; assuming the source given as input.\n', inputSource, info.Source);
-	end
-elseif ~isfield(info, 'sourceFromFile')
+if isfield(importParams, 'source')
+	sourceFromImportParams = ImportAedatBasicSourceName(importParams);
+	if exist('sourceFromFile', 'var') && ~strcmp(sourceFromImportParams, sourceFromFile)
+        fprintf('The source given as input, "%s", doesn''t match the source declared in the file, "%s"; assuming the source given as input.\n', sourceFromImportParams, info.sourceFromFile);
+    end
+    info.source = sourceFromImportParams;
+elseif exist('sourceFromFile', 'var')
+	info.source = ImportAedatBasicSourceName(sourceFromFile);
+else
 	% If no source was detected, assume it was from a DVS128	
 	info.source = 'Dvs128';
-else
-	info.source = info.sourceFromFile;
-end
-if isfield(info, 'sourceFromFile') 
-	% Clean up
-	rmfield(info, 'sourceFromFile');
 end
 
+% Get the address space (dimensions) of the device
+info.deviceAddressSpace = ImportAedatDeviceAddressSpace(info.source);
+    
+
+
+% Pack the result (importParams is already in aedat and need not be packed
+aedat.info = info;
