@@ -1,162 +1,155 @@
-function PlotDataDensity(input, numBins, runningAverage)
+function PlotDataDensity(aedat, numBins, runningAverage, startTime, endTime)
 
 %{
-2016_07_03 WIP!
-
-Takes 'input' - a data structure containing an imported .aedat file, 
+Takes 'aedat' - a data structure containing an imported .aedat file, 
 as created by ImportAedat. For each data type present, 
 it gives a graph of data density. All the graphs are superimposed. The
 number of time bins used to create the graph is an argument of the function. 
+runningAverage - the number of bins over which to smooth.
+
+THERE WOULD BE A BETTER TREATMENT - plotting instantaneous data rate by
+event - this would be consistent with the semilogy plot as there would be
+no zero data poinmts and the size of the downward spikes would tell you how
+long the data gaps were for. 
+
 %}
 
 if ~exist('numBins', 'var')
 	numBins = 1000;
 end
 
-durationUs = double(input.info.lastTimeStamp - input.info.firstTimeStamp);
+if exist('startTime', 'var')
+    startTime = startTime * 1e6;
+else
+    startTime = aedat.info.firstTimeStamp;
+end
+
+if exist('endTime', 'var')
+    endTime = endTime * 1e6;
+else
+    endTime = aedat.info.lastTimeStamp;
+end
+
+durationUs = double(endTime - startTime);
 durationOfBinUs = durationUs / numBins;
 durationOfBinS = durationOfBinUs / 1000000;
 
-timeBinBoundariesUs = double(input.info.firstTimeStamp) : durationOfBinUs : double(input.info.lastTimeStamp);
+timeBinBoundariesUs = double(startTime) : durationOfBinUs : double(endTime);
 timeBinCentresS = (timeBinBoundariesUs(1 : end - 1) + durationOfBinUs / 2) / 1000000;
 
 figure
-hold all
 legendLocal = {};
 
-if isfield(input.data, 'special')
-	density = zeros(numBins, 1);
-	for bin = 1 : numBins 
-		firstTimeStampIndex = find(input.data.special.timeStamp >= timeBinBoundariesUs(bin), 1, 'first');
-		lastTimeStampIndex = max(firstTimeStampIndex, find(input.data.special.timeStamp < timeBinBoundariesUs(bin + 1), 1, 'last'));
-		if ~isempty(firstTimeStampIndex) && ~isempty(lastTimeStampIndex) 
-			density(bin) = double(lastTimeStampIndex - firstTimeStampIndex) / durationOfBinS;
-		end
-	end
+if isfield(aedat.data, 'special')
+    timeStampsInTimeRange = aedat.data.special.timeStamp(...
+        aedat.data.special.timeStamp >= startTime ...
+        & aedat.data.special.timeStamp <= endTime);
+    density = hist(double(timeStampsInTimeRange), numBins);
 	if exist('runningAverage', 'var') && runningAverage > 1
 		kernel = (1 / runningAverage) * ones(1, runningAverage);
 		density = filter(kernel, 1, density);
 	end
-	semilogy(timeBinCentresS, density)
-	legendLocal = [legendLocal 'special'];
+	semilogy(timeBinCentresS, density, '.-')
+    hold all
+    legendLocal = [legendLocal 'special'];
 end
 
-if isfield(input.data, 'polarity')
-	density = zeros(numBins, 1);
-	for bin = 1 : numBins 
-		firstTimeStampIndex = find(input.data.polarity.timeStamp >= timeBinBoundariesUs(bin), 1, 'first');
-		lastTimeStampIndex = max(firstTimeStampIndex, find(input.data.polarity.timeStamp < timeBinBoundariesUs(bin + 1), 1, 'last'));
-		if ~isempty(firstTimeStampIndex) && ~isempty(lastTimeStampIndex) 
-			density(bin) = double(lastTimeStampIndex - firstTimeStampIndex) / durationOfBinS;
-		end
-	end
+if isfield(aedat.data, 'polarity')
+    timeStampsInTimeRange = aedat.data.polarity.timeStamp(...
+        aedat.data.polarity.timeStamp >= startTime ...
+        & aedat.data.polarity.timeStamp <= endTime);
+    density = hist(double(timeStampsInTimeRange), numBins);
 	if exist('runningAverage', 'var') && runningAverage > 1
 		kernel = (1 / runningAverage) * ones(1, runningAverage);
 		density = filter(kernel, 1, density);
 	end
-	semilogy(timeBinCentresS, density)
+	semilogy(timeBinCentresS, density, '.-')
+    hold all
 	legendLocal = [legendLocal 'polarity'];
 end
 
-if isfield(input.data, 'frame')
-	density = zeros(numBins, 1);
-	for bin = 1 : numBins 
-		firstTimeStampIndex = find(input.data.frame.timeStampExposureStart >= timeBinBoundariesUs(bin), 1, 'first');
-		lastTimeStampIndex = max(firstTimeStampIndex, find(input.data.frame.timeStampExposureStart < timeBinBoundariesUs(bin + 1), 1, 'last'));
-		if ~isempty(firstTimeStampIndex) && ~isempty(lastTimeStampIndex) 
-			density(bin) = double(lastTimeStampIndex - firstTimeStampIndex) / durationOfBinS;
-		end
-	end
+% Assumes that aedat3 timestamps, if present, have been simplified
+if isfield(aedat.data, 'frame')
+    timeStampsInTimeRange = aedat.data.frame.timeStampStart(...
+        aedat.data.frame.timeStampStart >= startTime ...
+        & aedat.data.frame.timeStampStart <= endTime);
+    density = hist(double(timeStampsInTimeRange), numBins);
 	if exist('runningAverage', 'var') && runningAverage > 1
 		kernel = (1 / runningAverage) * ones(1, runningAverage);
 		density = filter(kernel, 1, density);
 	end
-	semilogy(timeBinCentresS, density)
+	semilogy(timeBinCentresS, density, '.-')
+    hold all
 	legendLocal = [legendLocal 'frame'];
 end
 
-if isfield(input.data, 'imu6')
-	density = zeros(numBins, 1);
-	for bin = 1 : numBins 
-		firstTimeStampIndex = find(input.data.imu6.timeStamp >= timeBinBoundariesUs(bin), 1, 'first');
-		lastTimeStampIndex = max(firstTimeStampIndex, find(input.data.imu6.timeStamp < timeBinBoundariesUs(bin + 1), 1, 'last'));
-		if ~isempty(firstTimeStampIndex) && ~isempty(lastTimeStampIndex) 
-			density(bin) = double(lastTimeStampIndex - firstTimeStampIndex) / durationOfBinS;
-		end
-	end
+if isfield(aedat.data, 'imu6')
+    timeStampsInTimeRange = aedat.data.imu6.timeStamp(...
+        aedat.data.imu6.timeStamp >= startTime ...
+        & aedat.data.imu6.timeStamp <= endTime);
+    density = hist(double(timeStampsInTimeRange), numBins);
 	if exist('runningAverage', 'var') && runningAverage > 1
 		kernel = (1 / runningAverage) * ones(1, runningAverage);
 		density = filter(kernel, 1, density);
 	end
-	semilogy(timeBinCentresS, density)
+	semilogy(timeBinCentresS, density, '.-')
+    hold all
 	legendLocal = [legendLocal 'imu6'];
 end
 
-if isfield(input.data, 'sample')
-	density = zeros(numBins, 1);
-	for bin = 1 : numBins 
-		firstTimeStampIndex = find(input.data.sample.timeStamp >= timeBinBoundariesUs(bin), 1, 'first');
-		lastTimeStampIndex = max(firstTimeStampIndex, find(input.data.sample.timeStamp < timeBinBoundariesUs(bin + 1), 1, 'last'));
-		if ~isempty(firstTimeStampIndex) && ~isempty(lastTimeStampIndex) 
-			density(bin) = double(lastTimeStampIndex - firstTimeStampIndex) / durationOfBinS;
-		end
-	end
+if isfield(aedat.data, 'sample')
+    timeStampsInTimeRange = aedat.data.sample.timeStamp(...
+        aedat.data.sample.timeStamp >= startTime ...
+        & aedat.data.sample.timeStamp <= endTime);
+    density = hist(double(timeStampsInTimeRange), numBins);
 	if exist('runningAverage', 'var') && runningAverage > 1
 		kernel = (1 / runningAverage) * ones(1, runningAverage);
 		density = filter(kernel, 1, density);
 	end
-	semilogy(timeBinCentresS, density)
+	semilogy(timeBinCentresS, density, '.-')
+    hold all
 	legendLocal = [legendLocal 'sample'];
 end
 
-if isfield(input.data, 'ear')
-	density = zeros(numBins, 1);
-	for bin = 1 : numBins 
-		firstTimeStampIndex = find(input.data.ear.timeStamp >= timeBinBoundariesUs(bin), 1, 'first');
-		lastTimeStampIndex = max(firstTimeStampIndex, find(input.data.ear.timeStamp < timeBinBoundariesUs(bin + 1), 1, 'last'));
-		if ~isempty(firstTimeStampIndex) && ~isempty(lastTimeStampIndex) 
-			density(bin) = double(lastTimeStampIndex - firstTimeStampIndex) / durationOfBinS;
-		end
-	end
+if isfield(aedat.data, 'ear')
+    timeStampsInTimeRange = aedat.data.ear.timeStamp(...
+        aedat.data.ear.timeStamp >= startTime ...
+        & aedat.data.ear.timeStamp <= endTime);
+    density = hist(double(timeStampsInTimeRange), numBins);
 	if exist('runningAverage', 'var') && runningAverage > 1
 		kernel = (1 / runningAverage) * ones(1, runningAverage);
 		density = filter(kernel, 1, density);
 	end
-	semilogy(timeBinCentresS, density)
+	semilogy(timeBinCentresS, density, '.-')
+    hold all
 	legendLocal = [legendLocal 'ear'];
 end
 
-if isfield(input.data, 'point1D')
-	density = zeros(numBins, 1);
-	for bin = 1 : numBins 
-		firstTimeStampIndex = find(input.data.point1D.timeStamp >= timeBinBoundariesUs(bin), 1, 'first');
-		lastTimeStampIndex = max(firstTimeStampIndex, find(input.data.point1D.timeStamp < timeBinBoundariesUs(bin + 1), 1, 'last'));
-		if ~isempty(firstTimeStampIndex) && ~isempty(lastTimeStampIndex) 
-			density(bin) = double(lastTimeStampIndex - firstTimeStampIndex) / durationOfBinS;
-		end
-	end
+if isfield(aedat.data, 'point1D')
+    timeStampsInTimeRange = aedat.data.point1D.timeStamp(...
+        aedat.data.point1D.timeStamp >= startTime ...
+        & aedat.data.point1D.timeStamp <= endTime);
+    density = hist(double(timeStampsInTimeRange), numBins);
 	if exist('runningAverage', 'var') && runningAverage > 1
 		kernel = (1 / runningAverage) * ones(1, runningAverage);
 		density = filter(kernel, 1, density);
 	end
-	semilogy(timeBinCentresS, density)
+	semilogy(timeBinCentresS, density, '.-')
+    hold all
 	legendLocal = [legendLocal 'point1D'];
 end
 
-if isfield(input.data, 'point2D')
-	density = zeros(numBins, 1);
-	for bin = 1 : numBins 
-		firstTimeStampIndex = find(input.data.point2D.timeStamp >= timeBinBoundariesUs(bin), 1, 'first');
-		lastTimeStampIndex = max(firstTimeStampIndex, find(input.data.point2D.timeStamp < timeBinBoundariesUs(bin + 1), 1, 'last'));
-		if ~isempty(firstTimeStampIndex) && ~isempty(lastTimeStampIndex) 
-			density(bin) = double(lastTimeStampIndex - firstTimeStampIndex) / durationOfBinS;
-		end
-	end
+if isfield(aedat.data, 'point2D')
+    timeStampsInTimeRange = aedat.data.point2D.timeStamp(...
+        aedat.data.point2D.timeStamp >= startTime ...
+        & aedat.data.point2D.timeStamp <= endTime);
+    density = hist(double(timeStampsInTimeRange), numBins);
 	if exist('runningAverage', 'var') && runningAverage > 1
 		kernel = (1 / runningAverage) * ones(1, runningAverage);
 		density = filter(kernel, 1, density);
 	end
-	semilogy(timeBinCentresS, density)
+	semilogy(timeBinCentresS, density, '.-')
+    hold all
 	legendLocal = [legendLocal 'point2D'];
 end
 

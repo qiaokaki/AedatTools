@@ -19,7 +19,6 @@ if transpose
     temp                    = aedat.data.polarity.x;
     aedat.data.polarity.x   = aedat.data.polarity.y;
     aedat.data.polarity.y   = temp;
-    aedat.info.deviceAddressSpace = aedat.info.deviceAddressSpace([2 1]);
 end
 
 if flipX

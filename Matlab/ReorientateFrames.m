@@ -7,7 +7,9 @@ in that order according o the boolean inputs.
 
 dbstop if error
 if transpose
-    aedat.data.frame.samples    = aedat.data.frame.samples';
+    for frameIndex = 1 : aedat.data.frame.numEvents
+        aedat.data.frame.samples{frameIndex} = aedat.data.frame.samples{frameIndex}';
+    end
     temp                        = aedat.data.frame.xLength;
     aedat.data.frame.xLength    = aedat.data.frame.yLength;
     aedat.data.frame.yLength    = temp;
@@ -17,13 +19,19 @@ if transpose
 end
 
 if flipX
-    aedat.data.frame.samples    = aedat.data.frame.samples(:, end: -1 : 1);
+    for frameIndex = 1 : aedat.data.frame.numEvents
+        aedat.data.frame.samples{frameIndex} ...
+            = aedat.data.frame.samples{frameIndex}(:, end: -1 : 1);
+    end
     % aedat.data.frame.xPosition  = Needs to be subtracted from full sensor
     % size - later
 end
 
 if flipY
-    aedat.data.frame.samples    = aedat.data.frame.samples(end: -1 : 1, :);
+    for frameIndex = 1 : aedat.data.frame.numEvents
+        aedat.data.frame.samples{frameIndex} ...
+            = aedat.data.frame.samples{frameIndex}(end : -1 : 1, :);
+    end
     % aedat.data.frame.yPosition  = Needs to be subtracted from full sensor
     % size - later
 end

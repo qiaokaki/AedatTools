@@ -1,5 +1,7 @@
 function PlotPolarity(input, numPlots, distributeBy, minTime, maxTime, proportionOfPixels, contrast, flipVertical, flipHorizontal, transpose)
 
+%TODO CHANGE DEFAULT FLIP TO MATCH OPENCV STANDARD
+
 % Note that now Reorientate and FrameFromEvents functions provide some
 % of the needed functionality, this function could be rewritten...
 

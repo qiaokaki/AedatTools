@@ -235,6 +235,8 @@ cellFind = @(string)(@(cellContents)(strcmp(string, cellContents)));
 % Create structure to put all the data in 
 data = struct;
 
+%% DAS1
+
 if strcmp(info.source, 'Das1')
 	% DAS1 
 	sampleMask = hex2dec('1000');
@@ -269,8 +271,10 @@ if strcmp(info.source, 'Das1')
 		neuronMask  = hex2dec('0300'); 
 		neuronShiftBits = 8;
 		data.ear.neuron = uint8(bitshift(bitand(allAddr, neuronMask), -neuronShiftBits));
-	end
-	
+    end
+
+%% DVS128
+    
 elseif strcmp(info.source, 'Dvs128')
 	% DVS128
 	specialMask = hex2dec ('8000');
@@ -295,7 +299,10 @@ elseif strcmp(info.source, 'Dvs128')
 		% Polarity bit
 		polBit = 1;
 		data.polarity.polarity = bitget(allAddr(polarityLogical), polBit) == 1;
-	end					
+    end	
+    
+%% Davis
+
 elseif strfind(info.source, 'Davis') 
 	% DAVIS
 	% In the 32-bit address:
@@ -321,13 +328,17 @@ elseif strfind(info.source, 'Davis')
 	xMask = hex2dec('003FF000');
 	xShiftBits = 12;
 
+%% Davis special events
+
 	% Special events
 	if (~isfield(info, 'dataTypes') || any(cellfun(cellFind('special'), info.dataTypes))) && any(specialLogical)
 		disp('Importing special events ...')
         data.special.timeStamp = allTs(specialLogical);
 		% No need to create address field, since there is only one type of special event
-	end
-	
+    end
+
+%% Davis polarity events
+    
 	% Polarity (DVS) events
 	if (~isfield(info, 'dataTypes') || any(cellfun(cellFind('polarity'), info.dataTypes))) && any(polarityLogical)
 		disp('Importing polarity events ...')
@@ -341,9 +352,10 @@ elseif strfind(info.source, 'Davis')
 		data.polarity.polarity = bitget(allAddr(polarityLogical), polBit) == 1;
 	end	
 	
-	% Frame events - NOTE This code currently only handles global shutter
-	% readout ...
-
+%% Davis frame events
+    
+	% NOTE This code currently only handles global shutter readout ...
+   
 	if (~isfield(info, 'dataTypes') || any(cellfun(cellFind('frame'), info.dataTypes))) && any(frameLogical)
 		disp('Importing frames ...')
 		% These two are defined in the format, but not actually necessary to establish the frame boundaries
@@ -478,7 +490,8 @@ elseif strfind(info.source, 'Davis')
 			data.frame = rmfield(data.frame, 'reset'); % reset is no longer needed
 		end
 	end
-	% IMU events
+%% Davis IMU events
+
 		% These come in blocks of 7, for the 7 different values produced in
 		% a single sample; the following code recomposes these
 		% 7 words are sent in series, these being 3 axes for accel, temperature, and 3 axes for gyro
@@ -519,6 +532,8 @@ elseif strfind(info.source, 'Davis')
 	% this would be the place to do it. 
 
 end
+
+%% Augmenting info
 
 disp('Augmenting info ...')
 

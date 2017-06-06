@@ -1,6 +1,7 @@
 function PlotFrame(input, numPlots, distributeBy, minTime, maxTime, flipVertical, flipHorizontal, transpose)
 
 %{
+TODO CHANGE DEFAULT FLIP TO MATCH OPENCV STANDARD
 Takes 'input' - a data structure containing an imported .aedat file, 
 as created by ImportAedat, and creates a series of images from selected
 frames.

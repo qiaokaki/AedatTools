@@ -115,6 +115,6 @@ output(2 : 2 : end) = timeStamps; % set even elements to timestamps
 % write addresses and timestamps
 count=fwrite(f, output, 'uint32') / 2; % write 4 byte data
 fclose(f);
-fprintf('wrote %d events to %s\n',count,aedat.info.filePath);
+fprintf('wrote %d events to %s\n',count, aedat.exportParams.filePath);
 
 

@@ -185,6 +185,11 @@ if info.startTime > info.endTime
 	error([	'The startTime parameter is ' num2str(info.startTime) ...
 		', but the endTime parameter is ' num2str(info.endTime) ]);
 end
+% By default, throw away timeStampFrameStart/End, 
+% renaming timeStampExposureStart/End to timeStampStart/End
+if ~isfield(importParams, 'simplifyFrameTimeStamps')
+    simplifyFrameTimeStamps = true;
+end
 
 packetCount = 0;
 
@@ -416,10 +421,15 @@ while true % implement the exit conditions inside the loop - allows to distingui
                             frameColorChannels			= uint8(zeros(eventNumber, 1));
                             frameColorFilter			= uint8(zeros(eventNumber, 1));
                             frameRoiId					= uint8(zeros(eventNumber, 1));
-                            frameTimeStampFrameStart	= uint64(zeros(eventNumber, 1));
-                            frameTimeStampFrameEnd		= uint64(zeros(eventNumber, 1));
-                            frameTimeStampExposureStart = uint64(zeros(eventNumber, 1));
-                            frameTimeStampExposureEnd	= uint64(zeros(eventNumber, 1));
+                            if simplifyFrameTimeStamps
+                                frameTimeStampStart     = uint64(zeros(eventNumber, 1));
+                                frameTimeStampEnd		= uint64(zeros(eventNumber, 1));
+                            else
+                                frameTimeStampFrameStart	= uint64(zeros(eventNumber, 1));
+                                frameTimeStampFrameEnd		= uint64(zeros(eventNumber, 1));
+                                frameTimeStampExposureStart = uint64(zeros(eventNumber, 1));
+                                frameTimeStampExposureEnd	= uint64(zeros(eventNumber, 1));
+                            end
                             frameXLength				= uint16(zeros(eventNumber, 1));
                             frameYLength				= uint16(zeros(eventNumber, 1));
                             frameXPosition				= uint16(zeros(eventNumber, 1));
@@ -431,10 +441,15 @@ while true % implement the exit conditions inside the loop - allows to distingui
                                 frameColorChannels			= [frameColorChannels;			uint8(zeros(currentLength, 1))];
                                 frameColorFilter			= [frameColorFilter;			uint8(zeros(currentLength, 1))];
                                 frameRoiId					= [frameRoiId;					uint8(zeros(currentLength, 1))];
-                                frameTimeStampFrameStart	= [frameTimeStampFrameStart;	uint64(zeros(currentLength, 1))];
-                                frameTimeStampFrameEnd		= [frameTimeStampFrameEnd;		uint64(zeros(currentLength, 1))];
-                                frameTimeStampExposureStart = [frameTimeStampExposureStart; uint64(zeros(currentLength, 1))];
-                                frameTimeStampExposureEnd	= [frameTimeStampExposureEnd;	uint64(zeros(currentLength, 1))];
+                                if simplifyFrameTimeStamps
+                                    frameTimeStampStart	= [frameTimeStampStart;	uint64(zeros(currentLength, 1))];
+                                    frameTimeStampEnd		= [frameTimeStampEnd;		uint64(zeros(currentLength, 1))];
+                                else
+                                    frameTimeStampFrameStart	= [frameTimeStampFrameStart;	uint64(zeros(currentLength, 1))];
+                                    frameTimeStampFrameEnd		= [frameTimeStampFrameEnd;		uint64(zeros(currentLength, 1))];                                
+                                    frameTimeStampExposureStart = [frameTimeStampExposureStart; uint64(zeros(currentLength, 1))];
+                                    frameTimeStampExposureEnd	= [frameTimeStampExposureEnd;	uint64(zeros(currentLength, 1))];
+                                end
                                 frameXLength				= [frameXLength;				uint16(zeros(currentLength, 1))];
                                 frameYLength				= [frameYLength;				uint16(zeros(currentLength, 1))];
                                 frameXPosition				= [frameXPosition;				uint16(zeros(currentLength, 1))];
@@ -454,10 +469,15 @@ while true % implement the exit conditions inside the loop - allows to distingui
                             frameColorChannels(frameNumEvents) = uint16(bitshift(bitand(frameData, frameColorChannelsMask), -frameColorChannelsShiftBits));
                             frameColorFilter(frameNumEvents)	= uint16(bitshift(bitand(frameData, frameColorFilterMask),	-frameColorFilterShiftBits));
                             frameRoiId(frameNumEvents)		= uint16(bitshift(bitand(frameData, frameRoiIdMask),		-frameRoiIdShiftBits));
-                            frameTimeStampFrameStart(frameNumEvents)		= packetTimeStampOffset + uint64(typecast(packetData(dataPointer + 4 : dataPointer + 7), 'int32'));
-                            frameTimeStampFrameEnd(frameNumEvents)		= packetTimeStampOffset + uint64(typecast(packetData(dataPointer + 8 : dataPointer + 11), 'int32'));
-                            frameTimeStampExposureStart(frameNumEvents)	= packetTimeStampOffset + uint64(typecast(packetData(dataPointer + 12 : dataPointer + 15), 'int32'));
-                            frameTimeStampExposureEnd(frameNumEvents)		= packetTimeStampOffset + uint64(typecast(packetData(dataPointer + 16 : dataPointer + 19), 'int32'));
+                            if simplifyFrameTimeStamps
+                                frameTimeStampStart(frameNumEvents)		= packetTimeStampOffset + uint64(typecast(packetData(dataPointer + 12 : dataPointer + 15), 'int32'));
+                                frameTimeStampEnd(frameNumEvents)		= packetTimeStampOffset + uint64(typecast(packetData(dataPointer + 16 : dataPointer + 19), 'int32'));
+                            else
+                                frameTimeStampFrameStart(frameNumEvents)		= packetTimeStampOffset + uint64(typecast(packetData(dataPointer + 4 : dataPointer + 7), 'int32'));
+                                frameTimeStampFrameEnd(frameNumEvents)		= packetTimeStampOffset + uint64(typecast(packetData(dataPointer + 8 : dataPointer + 11), 'int32'));
+                                frameTimeStampExposureStart(frameNumEvents)	= packetTimeStampOffset + uint64(typecast(packetData(dataPointer + 12 : dataPointer + 15), 'int32'));
+                                frameTimeStampExposureEnd(frameNumEvents)		= packetTimeStampOffset + uint64(typecast(packetData(dataPointer + 16 : dataPointer + 19), 'int32'));
+                            end
                             frameXLength(frameNumEvents)		= typecast(packetData(dataPointer + 20 : dataPointer + 21), 'uint16'); % strictly speaking these are 4-byte signed integers, but there's no way they'll be that big in practice
                             frameYLength(frameNumEvents)		= typecast(packetData(dataPointer + 24 : dataPointer + 25), 'uint16');
                             frameXPosition(frameNumEvents)	= typecast(packetData(dataPointer + 28 : dataPointer + 29), 'uint16');
@@ -721,11 +741,16 @@ if frameNumEvents > 0
 		frame.roiId					= frameRoiId(keepLogical);
 		frame.colorChannels			= frameColorChannels(keepLogical);
 		frame.colorFilter			= frameColorFilter(keepLogical);
-		frame.timeStampFrameStart	= frameTimeStampFrameStart(keepLogical);
-		frame.timeStampFrameEnd		= frameTimeStampFrameEnd(keepLogical);
-		frame.timeStampExposureStart = frameTimeStampExposureStart(keepLogical);
-		frame.timeStampExposureEnd	= frameTimeStampExposureEnd(keepLogical);
-		frame.samples				= frameSamples(keepLogical);
+        if simplifyFrameTimeStamps
+            frame.timeStampStart	= frameTimeStampStart(keepLogical);
+            frame.timeStampEnd		= frameTimeStampEnd(keepLogical);
+        else
+            frame.timeStampFrameStart	= frameTimeStampFrameStart(keepLogical);
+            frame.timeStampFrameEnd		= frameTimeStampFrameEnd(keepLogical);
+            frame.timeStampExposureStart = frameTimeStampExposureStart(keepLogical);
+            frame.timeStampExposureEnd	= frameTimeStampExposureEnd(keepLogical);
+        end
+        frame.samples				= frameSamples(keepLogical);
 		frame.xLength				= frameXLength(keepLogical);
 		frame.yLength				= frameYLength(keepLogical);
 		frame.xPosition				= frameXPosition(keepLogical);
