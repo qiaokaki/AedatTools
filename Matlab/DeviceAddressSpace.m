@@ -1,4 +1,4 @@
-function deviceAddressSpace = ImportAedatDeviceAddressSpace(deviceName)
+function deviceAddressSpace = DeviceAddressSpace(deviceName)
 
 %{ 
 input is a device name

@@ -146,49 +146,81 @@ fileHandle = importParams.fileHandle;
 
 % Check the startEvent and endEvent parameters
 if isfield(importParams, 'startPacket')
-    info.startPacket = importParams.startPacket;
+    startPacket = importParams.startPacket;
 else
-	info.startPacket = 1;
+	startPacket = 1;
 end
 
 if isfield(importParams, 'modPacket')
-    info.modPacket = importParams.modPacket;
+    modPacket = importParams.modPacket;
 else
-	info.modPacket = 1;
+	modPacket = 1;
 end
 if isfield(importParams, 'endPacket')
-	info.endPacket = importParams.endPacket;
+	endPacket = importParams.endPacket;
 else
-	info.endPacket = inf;
+	endPacket = inf;
 end
-if info.startPacket > info.endPacket 
-	error([	'The startPacket parameter is ' num2str(info.startPacket) ...
-		', but the endPacket parameter is ' num2str(info.endPacket) ]);
+if startPacket > endPacket 
+	error([	'The startPacket parameter is ' num2str(startPacket) ...
+		', but the endPacket parameter is ' num2str(endPacket) ]);
 end
-if isfield(info, 'startEvent')
+if isfield(importParams, 'startEvent')
 	error('The startEvent parameter is set, but range by events is not available for .aedat version 3.x files')
 end
-if isfield(info, 'endEvent')
+if isfield(importParams, 'endEvent')
 	error('The endEvent parameter is set, but range by events is not available for .aedat version 3.x files')
 end
 if isfield(importParams, 'startTime')
-    info.startTime = importParams.startTime;
+    startTime = importParams.startTime;
 else
-	info.startTime = 0;
+	startTime = 0;
 end
 if isfield(importParams, 'endTime')
-    info.endTime = importParams.endTime;
+    endTime = importParams.endTime;
 else
-	info.endTime = inf;
+	endTime = inf;
 end
-if info.startTime > info.endTime 
-	error([	'The startTime parameter is ' num2str(info.startTime) ...
-		', but the endTime parameter is ' num2str(info.endTime) ]);
+if startTime > endTime 
+	error([	'The startTime parameter is ' num2str(startTime) ...
+		', but the endTime parameter is ' num2str(endTime) ]);
 end
 % By default, throw away timeStampFrameStart/End, 
 % renaming timeStampExposureStart/End to timeStampStart/End
-if ~isfield(importParams, 'simplifyFrameTimeStamps')
-    simplifyFrameTimeStamps = true;
+if isfield(importParams, 'simplifyFrameTimeStamps')
+  simplifyFrameTimeStamps = importParams.simplifyFrameTimeStamps;
+else
+  simplifyFrameTimeStamps = true;
+end
+
+% By default, throw away the valid flags, 
+% and any events which are set as invalid.
+if isfield(importParams, 'validOnly')
+  validOnly = importParams.validOnly;
+else
+  validOnly = true;
+end
+
+% By default, do not skip any packets.
+if isfield(importParams, 'modPacket')
+  modPacket = importParams.modPacket;
+else
+  modPacket = 1;
+end
+
+%By default, import the full data, rather than just indexing the packets
+if isfield(importParams, 'noData') 
+  noData = importParams.noData;
+else
+  noData = false;
+end
+
+% By default, import all data types
+if isfield(importParams, 'dataTypes')
+    allDataTypes = false;
+    dataTypes = importParams.dataTypes;
+else
+    allDataTypes = true;
 end
 
 packetCount = 0;
@@ -197,10 +229,10 @@ if isfield(info, 'packetPointers')
 	packetTypes = info.packetTypes;
 	packetPointers = info.packetPointers;
 	packetTimeStamps = info.packetTimeStamps;
-elseif info.endPacket < inf
-    packetTypes = ones(info.endPacket, 1, 'uint16');
-    packetPointers = zeros(info.endPacket, 1, 'uint64');
-    packetTimeStamps = zeros(info.endPacket, 1, 'uint64');
+elseif endPacket < inf
+    packetTypes = ones(endPacket, 1, 'uint16');
+    packetPointers = zeros(endPacket, 1, 'uint64');
+    packetTimeStamps = zeros(endPacket, 1, 'uint64');
 else
     packetTypes = ones(1000, 1, 'uint16');
     packetPointers = zeros(1000, 1, 'uint64');
@@ -255,13 +287,13 @@ fseek(fileHandle, info.beginningOfDataPointer, 'bof');
 % If the file has been indexed or partially indexed, and there is a
 % startPacket or startTime parameter, then jump ahead to the right place
 if isfield(info, 'packetPointers') 
-    if info.startPacket > 1 
-        fseek(fileHandle, double(info.packetPointers(info.startPacket)), 'bof');
-        packetCount = info.startPacket - 1;
-    elseif info.startTime > 0
-        targetPacketIndex = find(info.packetTimeStamps < info.startTime * 1e6, 1, 'last');
+    if startPacket > 1 
+        fseek(fileHandle, double(packetPointers(startPacket)), 'bof');
+        packetCount = startPacket - 1;
+    elseif startTime > 0
+        targetPacketIndex = find(info.packetTimeStamps < startTime * 1e6, 1, 'last');
         if ~isempty(targetPacketIndex)
-            fseek(fileHandle, double(info.packetPointers(targetPacketIndex)), 'bof');
+            fseek(fileHandle, double(packetPointers(targetPacketIndex)), 'bof');
             packetCount = targetPacketIndex - 1;
         end
     end
@@ -270,17 +302,16 @@ end
 % If the file has already been indexed (PARTIAL INDEXING NOT HANDLED), and
 % we are using modPacket to skip a proportion of the data, then use this
 % flag to speed up the loop
-modSkipping = isfield(info, 'packetPointers') ...
-                && isfield(importParams, 'modPacket') ...
-                && importParams.modPacket > 1;
+modSkipping = isfield(info, 'packetPointers') && modpacket > 1;
+
 
 while true % implement the exit conditions inside the loop - allows to distinguish between different types of exit
 %% Headers
     % Read the header of the next packet
     packetCount = packetCount + 1;
     if modSkipping
-        packetCount = ceil(packetCount / importParams.modPacket) * importParams.modPacket;
-        fseek(fileHandle, double(info.packetPointers(packetCount)), 'bof');
+        packetCount = ceil(packetCount / modPacket) * modPacket;
+        fseek(fileHandle, double(packetPointers(packetCount)), 'bof');
     end
 	header = uint8(fread(fileHandle, 28));
     
@@ -304,7 +335,7 @@ while true % implement the exit conditions inside the loop - allows to distingui
 		eventSize = typecast(header(5:8), 'int32');
 		eventNumber = typecast(header(21:24), 'int32');
 		fseek(fileHandle, eventNumber * eventSize, 'cof');
-    elseif info.endPacket < packetCount
+    elseif endPacket < packetCount
         packetCount = packetCount - 1;
 		info.numPackets = packetCount;
         break
@@ -323,23 +354,23 @@ while true % implement the exit conditions inside the loop - allows to distingui
 		mainTimeStamp = uint64(typecast(packetData (eventTsOffset + 1 : eventTsOffset + 4), 'int32')) + packetTimeStampOffset;
      	packetTimeStamps(packetCount) = mainTimeStamp;
            
-        if mainTimeStamp > info.endTime * 1e6 && ...
+        if mainTimeStamp > endTime * 1e6 && ...
                 mainTimeStamp ~= hex2dec('7FFFFFFF') % This may be a timestamp reset - don't let it stop the import
             % Naively assume that the packets are all ordered correctly and finish
             packetCount = packetCount - 1;
             break
         end
-        if info.startTime * 1e6 <= mainTimeStamp
+        if startTime * 1e6 <= mainTimeStamp
 			eventType = typecast(header(1:2), 'int16');
 			packetTypes(packetCount) = eventType;
 			
 			%eventSource = typecast(data(3:4), 'int16'); % Multiple sources not handled yet
 
-            if ~isfield(importParams, 'noData') || ~importParams.noData
+            if ~noData
     			% Handle the packet types individually:
     %% Special events
                 if eventType == 0 
-                    if ~isfield(importParams, 'dataTypes') || any(cellfun(cellFind('special'), importParams.dataTypes))
+                    if allDataTypes || any(cellfun(cellFind('special'), dataTypes))
                         % First check if the array is big enough
                         currentLength = length(specialValid);
                         if currentLength == 0
@@ -366,7 +397,7 @@ while true % implement the exit conditions inside the loop - allows to distingui
                     end
     %% Polarity events
                 elseif eventType == 1  
-                    if ~isfield(importParams, 'dataTypes') || any(cellfun(cellFind('polarity'), importParams.dataTypes))
+                    if allDataTypes || any(cellfun(cellFind('polarity'), dataTypes))
                         % First check if the array is big enough
                         currentLength = length(polarityValid);
                         if currentLength == 0 
@@ -413,7 +444,7 @@ while true % implement the exit conditions inside the loop - allows to distingui
                     end
     %% Frames
                 elseif eventType == 2
-                    if ~isfield(importParams, 'dataTypes') || any(cellfun(cellFind('frame'), importParams.dataTypes))
+                    if allDataTypes || any(cellfun(cellFind('frame'), dataTypes))
                         % First check if the array is big enough
                         currentLength = length(frameValid);
                         if currentLength == 0
@@ -510,7 +541,7 @@ while true % implement the exit conditions inside the loop - allows to distingui
                     end
     %% IMU6
                 elseif eventType == 3
-                    if ~isfield(importParams, 'dataTypes') || any(cellfun(cellFind('imu6'), importParams.dataTypes))
+                     if allDataTypes || any(cellfun(cellFind('imu6'), dataTypes))
     %{
     imu6Valid			= bool([]);
     imu6TimeStamp		= uint64([]);
@@ -575,7 +606,7 @@ while true % implement the exit conditions inside the loop - allows to distingui
                     end
     %% Sample
                 elseif eventType == 5
-                    if ~isfield(importParams, 'dataTypes') || any(cellfun(cellFind('sample'), importParams.dataTypes))
+                     if allDataTypes || any(cellfun(cellFind('sample'), dataTypes))
     %{
     sampleValid			= bool([]);
     sampleTimeStamp		= uint64([]);
@@ -585,7 +616,7 @@ while true % implement the exit conditions inside the loop - allows to distingui
                     end
     %% Ear
                 elseif eventType == 6
-                    if ~isfield(info, 'dataTypes') || any(cellfun(cellFind('ear'), importParams.dataTypes))
+                     if allDataTypes || any(cellfun(cellFind('ear'), dataTypes))
     %{
     earValid		= bool([]);
     earTimeStamp	= uint64([]);
@@ -598,7 +629,7 @@ while true % implement the exit conditions inside the loop - allows to distingui
     %% Point1D
                 % Point1D events
                 elseif eventType == 8 
-                    if ~isfield(importParams, 'dataTypes') || any(cellfun(cellFind('point1D'), importParams.dataTypes))
+                    if allDataTypes || any(cellfun(cellFind('point1D'), dataTypes))
                         % First check if the array is big enough
                         currentLength = length(point1DValid);
                         if currentLength == 0
@@ -626,7 +657,7 @@ while true % implement the exit conditions inside the loop - allows to distingui
     %% Point2D
                 % Point2D events
                 elseif eventType == 9 
-                    if ~isfield(importParams, 'dataTypes') || any(cellfun(cellFind('point2D'), importParams.dataTypes))
+                    if allDataTypes || any(cellfun(cellFind('point2D'), dataTypes))
                         % First check if the array is big enough
                         currentLength = length(point2DValid);
                         if currentLength == 0
@@ -660,248 +691,157 @@ while true % implement the exit conditions inside the loop - allows to distingui
             end
         end
 	end
-	if packetCount == info.endPacket
+	if packetCount == endPacket
 		break
 	end
 end
 
-% Calculate some basic stats
-%info.numEventsInFile 
-%info.endEvent
-if ~isfield(importParams, 'noData') || ~importParams.noData
-    outputData = struct;
-end
+%% Calculate some basic stats
 
 info.packetTypes	= packetTypes(1 : packetCount);
 info.packetPointers	= packetPointers(1 : packetCount);
 info.packetTimeStamps	= packetTimeStamps(1 : packetCount);
 
-% Clip arrays to correct size and add them to the output structure.
-% Also find first and last timeStamps
+%% Clip data arrays to correct size
 
-info.firstTimeStamp = inf;
-info.lastTimeStamp = 0;
+if noData == false
+    outputData = struct;
+end
 
 if specialNumEvents > 0
-	if isfield(info, 'validOnly') && importParams.validOnly
-		keepLogical = specialValid;
-		special.numEvents = nnz(keepLogical);
-	else
-		keepLogical = [true(specialNumEvents, 1); false(length(specialValid) - specialNumEvents, 1)]; 
-		special.valid = specialValid(keepLogical); % Only keep the valid field if non-valid events are possible
-		special.numEvents = specialNumEvents;
-	end
-	if special.numEvents > 0
-		special.timeStamp = specialTimeStamp(keepLogical);
-		special.address = specialAddress(keepLogical);
-		outputData.special = special;
-	end
-	if outputData.special.timeStamp(1) < info.firstTimeStamp
-		info.firstTimeStamp = outputData.special.timeStamp(1);
-	end
-	if outputData.special.timeStamp(end) > info.lastTimeStamp
-		info.lastTimeStamp = outputData.special.timeStamp(end);
-	end	
+	keepLogical = false(size(specialValid, 1), 1);
+	keepLogical(1:specialNumEvents) = true; 
+	special.valid = specialValid(keepLogical); 
+    special.timeStamp = specialTimeStamp(keepLogical);
+    special.address = specialAddress(keepLogical);
+    special.numEvents = specialNumEvents;
+    outputData.special = special;
 end
 
 if polarityNumEvents > 0
-	if isfield(info, 'validOnly') && importParams.validOnly
-		keepLogical = polarityValid;
-		polarity.numEvents = nnz(keepLogical);
-	else
-		keepLogical = [true(polarityNumEvents, 1); false(length(polarityValid) - polarityNumEvents, 1)]; 
-		polarity.valid = polarityValid(keepLogical); % Only keep the valid field if non-valid events are possible
-		polarity.numEvents = polarityNumEvents;
-	end
-	if polarity.numEvents > 0
-		polarity.timeStamp	= polarityTimeStamp(keepLogical);
-		polarity.y			= polarityY(keepLogical);
-		polarity.x			= polarityX(keepLogical);
-		polarity.polarity	= polarityPolarity(keepLogical);
-		outputData.polarity = polarity;
-	end
-	if outputData.polarity.timeStamp(1) < info.firstTimeStamp
-		info.firstTimeStamp = outputData.polarity.timeStamp(1);
-	end
-	if outputData.polarity.timeStamp(end) > info.lastTimeStamp
-		info.lastTimeStamp = outputData.polarity.timeStamp(end);
-	end	
+	keepLogical = false(size(polarityValid, 1), 1);
+	keepLogical(1:polarityNumEvents) = true; 
+	polarity.valid = polarityValid(keepLogical);
+    polarity.timeStamp	= polarityTimeStamp(keepLogical);
+    polarity.y			= polarityY(keepLogical);
+    polarity.x			= polarityX(keepLogical);
+    polarity.polarity	= polarityPolarity(keepLogical);
+    polarity.numEvents = polarityNumEvents;
+    outputData.polarity = polarity;
 end
 
 if frameNumEvents > 0
-	if isfield(info, 'validOnly') && importParams.validOnly
-		keepLogical = frameValid;
-		frame.numEvents = nnz(keepLogical);
-	else
-		keepLogical = [true(frameNumEvents, 1); false(length(frameValid) - frameNumEvents, 1)]; 
-		frame.valid = frameValid(keepLogical); % Only keep the valid field if non-valid events are possible
-		frame.numEvents = frameNumEvents;
-	end
-	if frame.numEvents > 0
-		frame.roiId					= frameRoiId(keepLogical);
-		frame.colorChannels			= frameColorChannels(keepLogical);
-		frame.colorFilter			= frameColorFilter(keepLogical);
-        if simplifyFrameTimeStamps
-            frame.timeStampStart	= frameTimeStampStart(keepLogical);
-            frame.timeStampEnd		= frameTimeStampEnd(keepLogical);
-        else
-            frame.timeStampFrameStart	= frameTimeStampFrameStart(keepLogical);
-            frame.timeStampFrameEnd		= frameTimeStampFrameEnd(keepLogical);
-            frame.timeStampExposureStart = frameTimeStampExposureStart(keepLogical);
-            frame.timeStampExposureEnd	= frameTimeStampExposureEnd(keepLogical);
-        end
-        frame.samples				= frameSamples(keepLogical);
-		frame.xLength				= frameXLength(keepLogical);
-		frame.yLength				= frameYLength(keepLogical);
-		frame.xPosition				= frameXPosition(keepLogical);
-		frame.yPosition				= frameYPosition(keepLogical);
-		outputData.frame = frame;
-	end	
-	if outputData.frame.timeStampExposureStart(1) < info.firstTimeStamp
-		info.firstTimeStamp = outputData.frame.timeStampExposureStart(1);
-	end
-	if outputData.frame.timeStampExposureEnd(end) > info.lastTimeStamp
-		info.lastTimeStamp = outputData.frame.timeStampExposureEnd(end);
-	end	
+	keepLogical = false(size(frameValid, 1), 1);
+	keepLogical(1:frameNumEvents) = true; 
+	frame.valid = frameValid(keepLogical);
+	frame.roiId					= frameRoiId(keepLogical);
+    frame.colorChannels			= frameColorChannels(keepLogical);
+    frame.colorFilter			= frameColorFilter(keepLogical);
+    if simplifyFrameTimeStamps
+        frame.timeStampStart	= frameTimeStampStart(keepLogical);
+        frame.timeStampEnd		= frameTimeStampEnd(keepLogical);
+    else
+        frame.timeStampFrameStart	= frameTimeStampFrameStart(keepLogical);
+        frame.timeStampFrameEnd		= frameTimeStampFrameEnd(keepLogical);
+        frame.timeStampExposureStart = frameTimeStampExposureStart(keepLogical);
+        frame.timeStampExposureEnd	= frameTimeStampExposureEnd(keepLogical);
+    end
+    frame.samples				= frameSamples(keepLogical);
+    frame.xLength				= frameXLength(keepLogical);
+    frame.yLength				= frameYLength(keepLogical);
+    frame.xPosition				= frameXPosition(keepLogical);
+    frame.yPosition				= frameYPosition(keepLogical);
+    frame.numEvents = frameNumEvents;
+    outputData.frame = frame;
 end
 
 if imu6NumEvents > 0
-	if isfield(info, 'validOnly') && importParams.validOnly
-		keepLogical = imu6Valid;
-		imu6.numEvents = nnz(keepLogical);
-	else
-		keepLogical = [true(imu6NumEvents, 1); false(length(imu6Valid) - imu6NumEvents, 1)]; 
-		imu6.valid = imu6Valid(keepLogical); % Only keep the valid field if non-valid events are possible
-		imu6.numEvents = imu6NumEvents;
-	end
-	if imu6.numEvents > 0
-		imu6.timeStamp	= imu6TimeStamp(keepLogical);
-		imu6.gyroX		= imu6GyroX(keepLogical);
-		imu6.gyroY		= imu6GyroY(keepLogical);
-		imu6.gyroZ		= imu6GyroZ(keepLogical);
-		imu6.accelX		= imu6AccelX(keepLogical);
-		imu6.accelY		= imu6AccelY(keepLogical);
-		imu6.accelZ		= imu6AccelZ(keepLogical);
-		imu6.temperature = imu6Temperature(keepLogical);
-		outputData.imu6 = imu6;
-	end		
-	if outputData.imu6.timeStamp(1) < info.firstTimeStamp
-		info.firstTimeStamp = outputData.imu6.timeStamp(1);
-	end
-	if outputData.imu6.timeStamp(end) > info.lastTimeStamp
-		info.lastTimeStamp = outputData.imu6.timeStamp(end);
-	end	
+	keepLogical = false(size(imu6Valid, 1), 1);
+	keepLogical(1:imu6NumEvents) = true; 
+    imu6.valid = imu6Valid(keepLogical); % Only keep the valid field if non-valid events are possible
+    imu6.timeStamp	= imu6TimeStamp(keepLogical);
+    imu6.gyroX		= imu6GyroX(keepLogical);
+    imu6.gyroY		= imu6GyroY(keepLogical);
+    imu6.gyroZ		= imu6GyroZ(keepLogical);
+    imu6.accelX		= imu6AccelX(keepLogical);
+    imu6.accelY		= imu6AccelY(keepLogical);
+    imu6.accelZ		= imu6AccelZ(keepLogical);
+    imu6.temperature = imu6Temperature(keepLogical);
+	imu6.numEvents = imu6NumEvents;
+	outputData.imu6 = imu6;
 end
 
 if sampleNumEvents > 0
-	if isfield(info, 'validOnly') && importParams.validOnly
-		keepLogical = sampleValid;
-		sample.numEvents = nnz(keepLogical);
-	else
-		keepLogical = [true(sampleNumEvents, 1); false(length(sampleValid) - sampleNumEvents, 1)]; 
-		sample.valid = sampleValid(keepLogical); % Only keep the valid field if non-valid events are possible
-		sample.numEvents = sampleNumEvents;
-	end
-	if imu6.numEvents > 0
-		sample.timeStamp	= sampleTimeStamp(keepLogical);
-		sample.sampleType	= sampleSampleType(keepLogical);
-		sample.sample		= sampleSample(keepLogical);
-		outputData.sample = sample;
-	end		
-	if outputData.sample.timeStamp(1) < info.firstTimeStamp
-		info.firstTimeStamp = outputData.sample.timeStamp(1);
-	end
-	if outputData.sample.timeStamp(end) > info.lastTimeStamp
-		info.lastTimeStamp = outputData.sample.timeStamp(end);
-	end	
+	keepLogical = false(size(sampleValid, 1), 1);
+	keepLogical(1:sampleNumEvents) = true; 
+    sample.valid = sampleValid(keepLogical); % Only keep the valid field if non-valid events are possible
+    sample.timeStamp	= sampleTimeStamp(keepLogical);
+    sample.sampleType	= sampleSampleType(keepLogical);
+    sample.sample		= sampleSample(keepLogical);
+    sample.numEvents = sampleNumEvents;
+	outputData.sample = sample;
 end
 
 if earNumEvents > 0
-	if isfield(info, 'validOnly') && importParams.validOnly
-		keepLogical = earValid;
-		ear.numEvents = nnz(keepLogical);
-	else
-		keepLogical = [true(earNumEvents, 1); false(length(earValid) - earNumEvents, 1)]; 
-		ear.valid = earValid(keepLogical); % Only keep the valid field if non-valid events are possible
-		ear.numEvents = earNumEvents;
-	end
-	if ear.numEvents > 0
-		ear.timeStamp	= earTimeStamp(keepLogical);
-		ear.position	= earosition(keepLogical);
-		ear.channel		= earChannel(keepLogical);
-		ear.neuron		= earNeuron(keepLogical);
-		ear.filter		= earFilter(keepLogical);
-		outputData.ear = ear;
-	end		
-	if outputData.ear.timeStamp(1) < info.firstTimeStamp
-		info.firstTimeStamp = outputData.ear.timeStamp(1);
-	end
-	if outputData.ear.timeStamp(end) > info.lastTimeStamp
-		info.lastTimeStamp = outputData.ear.timeStamp(end);
-	end	
+	keepLogical = false(size(earValid, 1), 1);
+	keepLogical(1:earNumEvents) = true; 
+    ear.valid = earValid(keepLogical); % Only keep the valid field if non-valid events are possible
+    ear.timeStamp	= earTimeStamp(keepLogical);
+    ear.position	= earosition(keepLogical);
+    ear.channel		= earChannel(keepLogical);
+    ear.neuron		= earNeuron(keepLogical);
+    ear.filter		= earFilter(keepLogical);
+    ear.numEvents = earNumEvents;
+    outputData.ear = ear;
 end
 
 if point1DNumEvents > 0
-	if isfield(info, 'validOnly') && importParams.validOnly
-		keepLogical = point1DValid;
-		point1D.numEvents = nnz(keepLogical);
-	else
-		keepLogical = [true(point1DNumEvents, 1); false(length(point1DValid) - point1DNumEvents, 1)]; 
-		point1D.valid = point1DValid(keepLogical); % Only keep the valid field if non-valid events are possible
-		point1D.numEvents = point1DNumEvents;
-	end
-	if point1D.numEvents > 0
-		point1D.timeStamp = point1DTimeStamp(keepLogical);
-		point1D.value = point1DValue(keepLogical);
-		outputData.point1D = point1D;
-	end
-	if outputData.point1D.timeStamp(1) < info.firstTimeStamp
-		info.firstTimeStamp = outputData.point1D.timeStamp(1);
-	end
-	if outputData.point1D.timeStamp(end) > info.lastTimeStamp
-		info.lastTimeStamp = outputData.point1D.timeStamp(end);
-	end	
+	keepLogical = false(size(point1DValid, 1), 1);
+	keepLogical(1:point1DNumEvents) = true; 
+    point1D.valid = point1DValid(keepLogical); % Only keep the valid field if non-valid events are possible
+    point1D.timeStamp = point1DTimeStamp(keepLogical);
+    point1D.value = point1DValue(keepLogical);
+    point1D.numEvents = point1DNumEvents;
+    outputData.point1D = point1D;
 end
 
 if point2DNumEvents > 0
-	if isfield(info, 'validOnly') && importParams.validOnly
-		keepLogical = point2DValid;
-		point2D.numEvents = nnz(keepLogical);
-	else
-		keepLogical = [true(point2DNumEvents, 1); false(length(point2DValid) - point2DNumEvents, 1)]; 
-		point2D.valid = point2DValid(keepLogical); % Only keep the valid field if non-valid events are possible
-		point2D.numEvents = point2DNumEvents;
-	end
-	if point2D.numEvents > 0
-		point2D.timeStamp = point2DTimeStamp(keepLogical);
-		point2D.value1 = point2DValue1(keepLogical);
-		point2D.value2 = point2DValue2(keepLogical);
-		outputData.point2D = point2D;
-	end
-	if outputData.point2D.timeStamp(1) < info.firstTimeStamp
-		info.firstTimeStamp = outputData.point2D.timeStamp(1);
-	end
-	if outputData.point2D.timeStamp(end) > info.lastTimeStamp
-		info.lastTimeStamp = outputData.point2D.timeStamp(end);
-	end	
+	keepLogical = false(size(point2DValid, 1), 1);
+	keepLogical(1:point2DNumEvents) = true; 
+    point2D.valid = point2DValid(keepLogical); % Only keep the valid field if non-valid events are possible
+    point2D.timeStamp = point2DTimeStamp(keepLogical);
+    point2D.value1 = point2DValue1(keepLogical);
+    point2D.value2 = point2DValue2(keepLogical);
+    point2D.numEvents = point2DNumEvents;
+    outputData.point2D = point2D;
 end
 
-% Calculate data volume by event type - this excludes final packet for
-% simplicity
+%% Calculate data volume by event type 
+% This excludes final packet for simplicity. 
+% It doesn't handle partial imports or invalid data.
 packetSizes = [info.packetPointers(2 : end) - info.packetPointers(1 : end - 1) - 28; 0];
 info.dataVolumeByEventType = {};
-
 eventTypesTemp = info.packetTypes;
 eventTypesTemp(eventTypesTemp == 32768) = 0;
 for eventType = max(eventTypesTemp): -1 : 0 % counting down means the array is only assigned once
-	info.dataVolumeByEventType(eventType + 1, 1 : 2) = [{ImportAedatEventTypes(eventType)} sum(packetSizes(info.packetTypes == eventType))];
+	info.dataVolumeByEventType(eventType + 1, 1 : 2) = [{EventTypes(eventType)} sum(packetSizes(info.packetTypes == eventType))];
 end
 
-%Pack the data into the output structure
-% the unpacked importParams should not have been changed
+%% Pack the data into the output structure
+
 aedat.info = info;
 if exist ('outputData', 'var')
     aedat.data = outputData;
 end
+% the unpacked importParams should not have been changed
 
+%% Remove invalid events
+
+if validOnly
+	aedat = RemoveInvalidEvents(aedat);
+end
+
+%% Find first and last time stamps        
+
+aedat = FindFirstAndLastTimeStamps(aedat);
 

@@ -119,7 +119,7 @@ while line(1)=='#'
         if isempty(startPrefix)
             startPrefix = 8;
         end
-		sourceFromFile = ImportAedatBasicSourceName(line(startPrefix + 1 : end));
+		sourceFromFile = BasicSourceName(line(startPrefix + 1 : end));
 	end
 	% Version 3.0 encodes it like this
 	% The following ignores any trace of previous sources (prefixed with a minus sign)
@@ -186,20 +186,20 @@ end
 	
 % If a device is specified in input, does it match the derived source?
 if isfield(importParams, 'source')
-	sourceFromImportParams = ImportAedatBasicSourceName(importParams);
+	sourceFromImportParams = BasicSourceName(importParams);
 	if exist('sourceFromFile', 'var') && ~strcmp(sourceFromImportParams, sourceFromFile)
         fprintf('The source given as input, "%s", doesn''t match the source declared in the file, "%s"; assuming the source given as input.\n', sourceFromImportParams, info.sourceFromFile);
-    end
+	end
     info.source = sourceFromImportParams;
 elseif exist('sourceFromFile', 'var')
-	info.source = ImportAedatBasicSourceName(sourceFromFile);
+	info.source = BasicSourceName(sourceFromFile);
 else
 	% If no source was detected, assume it was from a DVS128	
 	info.source = 'Dvs128';
 end
 
 % Get the address space (dimensions) of the device
-info.deviceAddressSpace = ImportAedatDeviceAddressSpace(info.source);
+info.deviceAddressSpace = DeviceAddressSpace(info.source);
     
 
 

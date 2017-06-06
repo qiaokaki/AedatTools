@@ -146,28 +146,28 @@ info.numEventsInFile = floor((ftell(fileHandle) - info.beginningOfDataPointer) /
 
 % Check the startEvent and endEvent parameters
 if isfield(importParams, 'startEvent')
-    info.startEvent = importParams.startEvent;
+    startEvent = importParams.startEvent;
 else
-    info.startEvent = 1;
+    startEvent = 1;
 end
-if info.startEvent > info.numEventsInFile
+if startEvent > info.numEventsInFile
 	error([	'The file contains ' num2str(info.numEventsInFile) ...
-			'; the startEvent parameter is ' num2str(info.startEvent) ]);
+			'; the startEvent parameter is ' num2str(startEvent) ]);
 end
 if isfield(importParams, 'endEvent')	
-	info.endEvent = importParams.numEventsInFile;
-	info.endEvent = info.numEventsInFile;
+	endEvent = importParams.numEventsInFile;
+	endEvent = info.numEventsInFile;
 end
 	
-if info.endEvent > info.numEventsInFile
+if endEvent > info.numEventsInFile
 	disp([	'The file contains ' num2str(info.numEventsInFile) ...
-			'; the endEvent parameter is ' num2str(info.endEvents) ...
+			'; the endEvent parameter is ' num2str(endEvents) ...
 			'; reducing the endEvent parameter accordingly.']);
-		info.endEvent = info.numEventsInFile;
+		endEvent = info.numEventsInFile;
 end
-if info.startEvent >= info.endEvent 
-	error([	'The startEvent parameter is ' num2str(info.startEvent) ...
-		', but the endEvent parameter is ' num2str(info.endEvent) ]);
+if startEvent >= endEvent 
+	error([	'The startEvent parameter is ' num2str(startEvent) ...
+		', but the endEvent parameter is ' num2str(endEvent) ]);
 end
 
 if isfield(importParams, 'startPacket')
@@ -177,16 +177,16 @@ if isfield(importParams, 'endPacket')
 	error('The endPacket parameter is set, but range by events is not available for .aedat version < 3 files')
 end
 
-numEventsToRead = info.endEvent - info.startEvent + 1;
+numEventsToRead = endEvent - startEvent + 1;
 
 % Read addresses
 disp('Reading addresses ...')
-fseek(fileHandle, info.beginningOfDataPointer + numBytesPerEvent * info.startEvent, 'bof'); 
+fseek(fileHandle, info.beginningOfDataPointer + numBytesPerEvent * startEvent, 'bof'); 
 allAddr = uint32(fread(fileHandle, numEventsToRead, addrPrecision, 4, 'b'));
 
 % Read timestamps
 disp('Reading timestamps ...')
-fseek(fileHandle, info.beginningOfDataPointer + numBytesPerEvent * info.startEvent + numBytesPerAddress, 'bof');
+fseek(fileHandle, info.beginningOfDataPointer + numBytesPerEvent * startEvent + numBytesPerAddress, 'bof');
 allTs = uint32(fread(fileHandle, numEventsToRead, addrPrecision, numBytesPerAddress, 'b'));
 
 % Trim events outside time window
@@ -195,14 +195,14 @@ allTs = uint32(fread(fileHandle, numEventsToRead, addrPrecision, numBytesPerAddr
 
 if isfield(info, 'startTime')
     disp('Trimming to start time ...')
-	tempIndex = allTs >= info.startTime * 1e6;
+	tempIndex = allTs >= startTime * 1e6;
 	allAddr = allAddr(tempIndex);
 	allTs	= allTs(tempIndex);
 end
 
 if isfield(info, 'endTime')
     disp('Trimming to end time ...')    
-	tempIndex = allTs <= info.endTime * 1e6;
+	tempIndex = allTs <= endTime * 1e6;
 	allAddr = allAddr(tempIndex);
 	allTs	= allTs(tempIndex);
 end
@@ -596,9 +596,15 @@ if isfield(data, 'ear')
 	end
 end
 
+%% Pack data
+
 % aedat.importParams is already there and should be unchanged
 aedat.info = info;
 aedat.data = data;
+
+%% Find first and last time stamps        
+
+aedat = FindFirstAndLastTimeStamps(aedat);
 
 disp('Import finished')
 
