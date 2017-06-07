@@ -124,6 +124,7 @@ non-monotonic timestamps.
 dbstop if error
 
 info = aedat.info;
+importParams = aedat.importParams;
 
 % The fileFormat dictates whether there are 6 or 8 bytes per event. 
 if info.fileFormat == 1
@@ -155,7 +156,8 @@ if startEvent > info.numEventsInFile
 			'; the startEvent parameter is ' num2str(startEvent) ]);
 end
 if isfield(importParams, 'endEvent')	
-	endEvent = importParams.numEventsInFile;
+	endEvent = importParams.endEvent;
+else
 	endEvent = info.numEventsInFile;
 end
 	
@@ -360,7 +362,7 @@ elseif strfind(info.source, 'Davis')
 		disp('Importing frames ...')
 		% These two are defined in the format, but not actually necessary to establish the frame boundaries
 		% frameLastEventMask = hex2dec ('FFFFFC00');
-		% frameLastEvent = hex2dec ('80000000'); %starts with biggest address
+		% frameLastEvent = hex2dec     ('80000000'); %starts with biggest address
 		
 		frameSampleMask = bin2dec('1111111111');
 		
@@ -369,7 +371,7 @@ elseif strfind(info.source, 'Davis')
 
 		frameX = uint16(bitshift(bitand(frameData, xMask),-xShiftBits));
 		frameY = uint16(bitshift(bitand(frameData, yMask),-yShiftBits));
-		frameSignal = boolean(bitshift(bitand(frameData, signalOrSpecialMask), -4));
+		frameSignal = boolean(bitand(frameData, signalOrSpecialMask));
 		frameSample = uint16(bitand(frameData, frameSampleMask));
 		
 		% In general the ramp of address values could be in either
@@ -397,7 +399,7 @@ elseif strfind(info.source, 'Davis')
 			disp(['Processing frame ' num2str(frameIndex)])
 			% All within a frame should be either reset or signal. I could
 			% implement a check here to see that that's true, but I haven't
-			% done so; rather I just take the firswt value
+			% done so; rather I just take the first value
 			data.frame.reset(frameIndex) = ~frameSignal(frameStarts(frameIndex)); 
 			
 			% in aedat 2 format we don't have the four timestamps of aedat 3 format
@@ -420,6 +422,8 @@ elseif strfind(info.source, 'Davis')
 			
 			% first create a temporary array - there is no concept of
 			% colour channels in aedat2
+            %{ 
+            Code before I learned about 'accumarray':
 			tempSamples = zeros(data.frame.yLength(frameIndex), data.frame.xLength(frameIndex), 'uint16');
 			for sampleIndex = frameStarts(frameIndex) : frameStarts(frameIndex + 1) - 1
 				tempSamples(frameY(sampleIndex) - data.frame.yPosition(frameIndex) + 1, ...
@@ -427,12 +431,21 @@ elseif strfind(info.source, 'Davis')
 							= frameSample(sampleIndex);
 			end
 			data.frame.samples{frameIndex} = tempSamples;
+            %}
+            sampleIndexRange = frameStarts(frameIndex) : frameStarts(frameIndex + 1) - 1;
+            data.frame.samples{frameIndex} = accumarray(...
+                [frameY(sampleIndexRange) - data.frame.yPosition(frameIndex) + 1 ...
+                 frameX(sampleIndexRange) - data.frame.xPosition(frameIndex) + 1], ...
+                 frameSample(sampleIndexRange), ...
+                 [data.frame.yLength(frameIndex) data.frame.xLength(frameIndex)]);
 		end	
 		% By default, subtract the reset read 
-		if ~isfield(info, 'subtractResetRead')
-            info.subtractResetRead = true;
+		if isfield(importParams, 'subtractResetRead')
+            subtractResetRead = importParams.subtractResetRead;
+        else
+            subtractResetRead = true;
         end
-		if info.subtractResetRead && isfield(data.frame, 'reset')
+		if subtractResetRead && isfield(data.frame, 'reset')
             disp('Performing frame subtraction ...')    
 			% Make a second pass through the frames, subtracting reset
 			% reads from signal reads

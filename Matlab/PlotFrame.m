@@ -18,6 +18,10 @@ if ~exist('distributeBy', 'var')
 	distributeBy = 'time';
 end
 
+if ~exist('numPlots', 'var')
+	numPlots = 12;
+end
+
 % This function assumes that aedat3 frame timestamps have been simplified
 timeStamps = aedat.data.frame.timeStampStart;
 % This function plots all frames, assuming that they are valid; 

@@ -13,6 +13,11 @@ if ~exist('aedat', 'var')
 	error('Missing input')
 end
 
+if ~isfield(aedat, 'data')
+	disp('No data to export')
+    return
+end
+
 % Create the file
 if ~isfield(aedat.exportParams, 'filePath')
     error('Missing file path and name')
@@ -36,20 +41,23 @@ end
 fprintf(f,'# End of ASCII Header\r\n');
 
 % DAVIS
-% In the 32-bit address:
-% bit 32 (1-based) being 1 indicates an APS sample
-% bit 11 (1-based) being 1 indicates a special event 
-% bits 11 and 32 (1-based) both being zero signals a polarity event
+% In the 32-bit address (1-based):
+% Bit-32   Bit-11   Meaning
+% 1        0        APS sample 
+% 1        1        IMU sample
+% 0        1        Special event 
+% 0        0        Polarity event
 
 yShiftBits = 22;
 xShiftBits = 12;
 % frameShiftBits = 0;
 frameFlagShiftBits = 31;
+signalShiftBits = 9;
 
 frameData = aedat.data.frame;
 
 numFrames = frameData.numEvents;
-deviceAddressSpace = ImportAedatDeviceAddressSpace(aedat.info.source);
+deviceAddressSpace = DeviceAddressSpace(aedat.info.source);
 xDim = deviceAddressSpace(1);
 yDim = deviceAddressSpace(2);
 numPixels = xDim * yDim;
@@ -63,13 +71,19 @@ timeStamps = uint32(zeros(1, 2 * numFrames * numPixels));
 % The output vector is twice as big again because samples and timeStamps 
 % will be interspersed in the 'output' vector.
 output = uint32(zeros(1, 2 * 2 * numFrames * numPixels)); 
-y = repmat(uint32(0 : yDim - 1), 1, xDim * numFrames * 2);
-x = repmat(uint32(0 : xDim - 1), yDim, numFrames * 2);
+y = repmat(uint32(yDim - 1 : -1 : 0), 1, xDim * numFrames * 2);
+x = repmat(uint32(xDim - 1 : -1 : 0), yDim, numFrames * 2);
 x = x(:);
 x = x';
+% in bit 11 (1-based) 1 means signal read and 0 means reset read.
+signalFlag = repmat([zeros(1, numPixels, 'uint32')  ones(1, numPixels, 'uint32') * 2^10], 1, numFrames);
+% The last event mask is synonymous with the sample from x=0 y=0; data is
+% therefore ordered backwards.
 for frameIndex = 1 : numFrames
+    samplesTemp = frameData.samples{frameIndex}(:);
+    samplesTemp = samplesTemp(end : -1 : 1);
     samples((frameIndex * 2 - 1) * numPixels + 1 : frameIndex * 2 * numPixels) ...
-        = frameData.samples{frameIndex}(:) ; 
+        = samplesTemp ;
     timeStamps((frameIndex - 1) * 2 * numPixels + 1 : frameIndex * 2 * numPixels) ...
         = frameData.timeStampStart(frameIndex); 
 end
@@ -78,11 +92,11 @@ y = y * uint32(2 ^ yShiftBits);
 x = x * uint32(2 ^ xShiftBits);
 % samples should now be in the range 0-1023 (10-bit). 
 % subtract samples from 1023. This has the effect of leaving all the reset
-% frame samples at 1023 - the highest value, gainst which the signal frames
+% frame samples at 1023 - the highest value, against which the signal frames
 % will later be subtracted. 
 samples = 1023 - samples;
 
-output(1:2:end) = frameFlag + y + x + samples;
+output(1:2:end) = frameFlag + y + x + signalFlag + samples;
 output(2:2:end) = timeStamps; % set even elements to timestamps
 
 % write addresses and timestamps

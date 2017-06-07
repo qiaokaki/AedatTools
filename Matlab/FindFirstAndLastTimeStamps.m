@@ -27,8 +27,7 @@ if isfield(aedat.data, 'special')
 	end	
 end
 
-if polarityNumEvents > 0
-    aedat.data.polarity = polarity;
+if isfield(aedat.data, 'polarity')
 	if aedat.data.polarity.timeStamp(1) < firstTimeStamp
 		firstTimeStamp = aedat.data.polarity.timeStamp(1);
 	end
@@ -37,16 +36,25 @@ if polarityNumEvents > 0
 	end	
 end
 
-if frameNumEvents > 0
-	if aedat.data.frame.timeStampExposureStart(1) < firstTimeStamp
-		firstTimeStamp = aedat.data.frame.timeStampExposureStart(1);
-	end
-	if aedat.data.frame.timeStampExposureEnd(end) > lastTimeStamp
-		lastTimeStamp = aedat.data.frame.timeStampExposureEnd(end);
-	end	
+if isfield(aedat.data, 'frame')
+    if isfield(aedat.data.frame, 'timeStampExposureStart')
+        if aedat.data.frame.timeStampExposureStart(1) < firstTimeStamp
+            firstTimeStamp = aedat.data.frame.timeStampExposureStart(1);
+        end
+        if aedat.data.frame.timeStampExposureEnd(end) > lastTimeStamp
+            lastTimeStamp = aedat.data.frame.timeStampExposureEnd(end);
+        end	
+    else
+        if aedat.data.frame.timeStampStart(1) < firstTimeStamp
+            firstTimeStamp = aedat.data.frame.timeStampStart(1);
+        end
+        if aedat.data.frame.timeStampEnd(end) > lastTimeStamp
+            lastTimeStamp = aedat.data.frame.timeStampEnd(end);
+        end	
+    end
 end
 
-if imu6NumEvents > 0
+if isfield(aedat.data, 'imu6')
 	if aedat.data.imu6.timeStamp(1) < firstTimeStamp
 		firstTimeStamp = aedat.data.imu6.timeStamp(1);
 	end
@@ -55,7 +63,7 @@ if imu6NumEvents > 0
 	end	
 end
 
-if sampleNumEvents > 0
+if isfield(aedat.data, 'sample')
 	if aedat.data.sample.timeStamp(1) < firstTimeStamp
 		firstTimeStamp = aedat.data.sample.timeStamp(1);
 	end
@@ -64,7 +72,7 @@ if sampleNumEvents > 0
 	end	
 end
 
-if earNumEvents > 0
+if isfield(aedat.data, 'ear')
 	if aedat.data.ear.timeStamp(1) < firstTimeStamp
 		firstTimeStamp = aedat.data.ear.timeStamp(1);
 	end
@@ -73,7 +81,7 @@ if earNumEvents > 0
 	end	
 end
 
-if point1DNumEvents > 0
+if isfield(aedat.data, 'point1D')
 	if aedat.data.point1D.timeStamp(1) < firstTimeStamp
 		firstTimeStamp = aedat.data.point1D.timeStamp(1);
 	end
@@ -82,7 +90,7 @@ if point1DNumEvents > 0
 	end	
 end
 
-if point2DNumEvents > 0
+if isfield(aedat.data, 'point2D')
 	if aedat.data.point2D.timeStamp(1) < firstTimeStamp
 		firstTimeStamp = aedat.data.point2D.timeStamp(1);
 	end
