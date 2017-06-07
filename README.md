@@ -57,3 +57,9 @@ frame samples are held in uint16 vectors, but they are in the range 0-1023 - i.e
 
 IMU units - import converts IMU samples to g (for accelation) and deg/s for angular velocity. ExportRosbag converts these to m/s^2 and rad/s respectively. 
 
+## Outstanding issues
+
+Import from aedat2 currently doesn't have a good method for excluding data before any timestamp resets.
+
+ExportRosbag not yet written in matlab, only python. 
+

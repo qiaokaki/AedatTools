@@ -2,7 +2,7 @@ function aedat = ReorientateFrames(aedat, transpose, flipX, flipY)
 
 %{
 For the frame data, if present, apply transpose, flipX and flipY operations
-in that order according o the boolean inputs.
+in that order according to the boolean inputs.
 %}
 
 dbstop if error
@@ -23,8 +23,9 @@ if flipX
         aedat.data.frame.samples{frameIndex} ...
             = aedat.data.frame.samples{frameIndex}(:, end: -1 : 1);
     end
-    % aedat.data.frame.xPosition  = Needs to be subtracted from full sensor
-    % size - later
+    aedat.info.deviceAddressSpace(1) - 
+    aedat.data.frame.xPosition  = aedat.info.deviceAddressSpace(1) ...
+                                    - aedat.data.frame.xPosition;
 end
 
 if flipY
@@ -32,6 +33,6 @@ if flipY
         aedat.data.frame.samples{frameIndex} ...
             = aedat.data.frame.samples{frameIndex}(end : -1 : 1, :);
     end
-    % aedat.data.frame.yPosition  = Needs to be subtracted from full sensor
-    % size - later
+    aedat.data.frame.yPosition  = aedat.info.deviceAddressSpace(2) ...
+                                    - aedat.data.frame.yPosition;
 end

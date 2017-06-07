@@ -1,6 +1,6 @@
-function PlotAedat(input, numPlots, distributeBy)
+function PlotAedat(aedat, numPlots, distributeBy)
 
-% This function calls the 'Plot...' function for each of the support event
+% This function calls the 'Plot...' function for each of the supported event
 % types
 
 if ~exist('numPlots', 'var')
@@ -11,29 +11,31 @@ if ~exist('distributeBy', 'var')
 	distributeBy = 'time';
 end
 
-if isfield(input.data, 'special')
-	PlotSpecial(input); % This function displays all special events
+if isfield(aedat.data, 'special')
+	PlotSpecial(aedat); % This function displays all special events
 end
-if isfield(input.data, 'polarity')
-	PlotPolarity(input, numPlots, distributeBy);
+if isfield(aedat.data, 'polarity')
+	PlotPolarity(aedat, numPlots, distributeBy);
 end
-if isfield(input.data, 'frame')
-	PlotFrame(input, numPlots, distributeBy);
+if isfield(aedat.data, 'frame')
+	PlotFrame(aedat, numPlots, distributeBy);
 end
-if isfield(input.data, 'imu6')
-	PlotImu6(input, numPlots, distributeBy);
+if isfield(aedat.data, 'imu6')
+	PlotImu6(aedat);
 end
-if isfield(input.data, 'sample')
-	PlotSample(input, numPlots, distributeBy);
+%{
+if isfield(aedat.data, 'sample')
+	PlotSample(aedat, numPlots, distributeBy);
 end
-if isfield(input.data, 'ear')
-	PlotEar(input, numPlots, distributeBy);
+if isfield(aedat.data, 'ear')
+	PlotEar(aedat, numPlots, distributeBy);
 end
-if isfield(input.data, 'point1D')
-	PlotPoint1D(input, numPlots, distributeBy);
+%}
+if isfield(aedat.data, 'point1D')
+	PlotPoint1D(aedat);
 end
-if isfield(input.data, 'point2D')
-	PlotPoint2D(input, numPlots, distributeBy);
+if isfield(aedat.data, 'point2D')
+	PlotPoint2D(aedat);
 end
 
-
+PlotPacketTimeStamps(aedat, newFigure)

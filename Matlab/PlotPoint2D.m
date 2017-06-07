@@ -1,16 +1,16 @@
-function PlotPoint2D(input, numPlots, distributeBy)
+function PlotPoint2D(aedat)
 
 %{
 
-Takes 'input' - a data structure containing an imported .aedat file, 
+Takes 'aedat' - a data structure containing an imported .aedat file, 
 as created by ImportAedat, and creates plots of point2D events. There are 3
 x 2d plots: timeStamp vs value1, timeStamp vs value2 and value1 vs value2;
 then there is a 3D plot with timeStamp vs value1 vs value2
 %}
 
-timeStamps = double(input.data.point2D.timeStamp)' / 1000000;
-value1 = (input.data.point2D.value1)';
-value2 = (input.data.point2D.value2)';
+timeStamps = double(aedat.data.point2D.timeStamp)' / 1000000;
+value1 = (aedat.data.point2D.value1)';
+value2 = (aedat.data.point2D.value2)';
 
 figure
 set(gcf,'numbertitle','off','name','Point2D')

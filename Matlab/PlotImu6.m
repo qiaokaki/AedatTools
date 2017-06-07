@@ -1,10 +1,10 @@
-function PlotImu6(input, numBins, startTime, endTime)
+function PlotImu6(aedat, numBins, startTime, endTime)
 
 %{
 %}
 
-if isfield(input.data, 'imu6')
-    data = input.data.imu6;
+if isfield(aedat.data, 'imu6')
+    data = aedat.data.imu6;
 else
     return
 end
@@ -16,13 +16,13 @@ end
 if exist('startTime', 'var') && startTime > 0 
     startTime = startTime * 1e6;
 else
-    startTime = input.info.firstTimeStamp;
+    startTime = aedat.info.firstTimeStamp;
 end
 
 if exist('endTime', 'var') && endTime > 0 
     endTime = endTime * 1e6;
 else
-    endTime = input.info.lastTimeStamp;
+    endTime = aedat.info.lastTimeStamp;
 end
 
 durationUs = double(endTime - startTime);

@@ -1,8 +1,8 @@
-function PlotFrame(input, numPlots, distributeBy, minTime, maxTime, flipVertical, flipHorizontal, transpose)
+function PlotFrame(aedat, numPlots, distributeBy, minTime, maxTime, transpose, flipVertical, flipHorizontal)
 
 %{
 TODO CHANGE DEFAULT FLIP TO MATCH OPENCV STANDARD
-Takes 'input' - a data structure containing an imported .aedat file, 
+Takes 'aedat' - a data structure containing an imported .aedat file, 
 as created by ImportAedat, and creates a series of images from selected
 frames.
 The number of subplots is given by the numPlots parameter.
@@ -14,17 +14,15 @@ and 'maxTime' are used then the time window used is only between
 those limits.
 %}
 
-if nargin < 3
+if ~exist('distributeBy', 'var')
 	distributeBy = 'time';
 end
 
-% we would rather work with exposure times, but aedat 2 doesn't encode that
-if isfield(input.data.frame, 'timeStampExposureStart')
-	timeStamps = input.data.frame.timeStampExposureStart;
-else
-	timeStamps = input.data.frame.timeStampStart;
-end
-numFrames = length(input.data.frame.samples); % ignore issue of valid / invalid for now ...
+% This function assumes that aedat3 frame timestamps have been simplified
+timeStamps = aedat.data.frame.timeStampStart;
+% This function plots all frames, assuming that they are valid; 
+% it assumes that reset read subtraction has been performed
+numFrames = length(aedat.data.frame.samples); 
 if numFrames < numPlots
 	numPlots = numFrames;
 end
@@ -69,10 +67,10 @@ for plotCount = 1 : numPlots
 	frameIndex = find(timeStamps >= timePoints(plotCount), 1, 'first');
 	% Ignore colour for now ...    
 	if exist('transpose', 'var') && transpose
-    	imagesc(input.data.frame.samples{frameIndex}')
+        imagesc(aedat.data.frame.samples{frameIndex}')
     else
-        imagesc(input.data.frame.samples{frameIndex})
-    end
+        imagesc(aedat.data.frame.samples{frameIndex})
+	end
     colormap('gray')
 	axis equal tight
 	if exist('flipVertical', 'var') && flipVertical

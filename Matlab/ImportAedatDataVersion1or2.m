@@ -193,14 +193,14 @@ allTs = uint32(fread(fileHandle, numEventsToRead, addrPrecision, numBytesPerAddr
 % This is an inefficent implementation, which allows for
 % non-monotonic timestamps. 
 
-if isfield(info, 'startTime')
+if isfield(importParams, 'startTime')
     disp('Trimming to start time ...')
 	tempIndex = allTs >= startTime * 1e6;
 	allAddr = allAddr(tempIndex);
 	allTs	= allTs(tempIndex);
 end
 
-if isfield(info, 'endTime')
+if isfield(importParams, 'endTime')
     disp('Trimming to end time ...')    
 	tempIndex = allTs <= endTime * 1e6;
 	allAddr = allAddr(tempIndex);
@@ -533,69 +533,6 @@ elseif strfind(info.source, 'Davis')
 
 end
 
-%% Augmenting info
-
-disp('Augmenting info ...')
-
-% calculate numEvents fields; also find first and last timeStamps
-info.firstTimeStamp = inf;
-info.lastTimeStamp = 0;
-
-if isfield(data, 'special')
-	data.special.numEvents = length(data.special.timeStamp);
-	if data.special.timeStamp(1) < info.firstTimeStamp
-		info.firstTimeStamp = data.special.timeStamp(1);
-	end
-	if data.special.timeStamp(end) > info.lastTimeStamp
-		info.lastTimeStamp = data.special.timeStamp(end);
-	end
-end
-if isfield(data, 'polarity')
-	data.polarity.numEvents = length(data.polarity.timeStamp);
-	if data.polarity.timeStamp(1) < info.firstTimeStamp
-		info.firstTimeStamp = data.polarity.timeStamp(1);
-	end
-	if data.polarity.timeStamp(end) > info.lastTimeStamp
-		info.lastTimeStamp = data.polarity.timeStamp(end);
-	end
-end
-if isfield(data, 'frame')
-	data.frame.numEvents = length(data.frame.timeStampStart);
-	if data.frame.timeStampStart(1) < info.firstTimeStamp
-		info.firstTimeStamp = data.frame.timeStampStart(1);
-	end
-	if data.frame.timeStampEnd(end) > info.lastTimeStamp
-		info.lastTimeStamp = data.frame.timeStampEnd(end);
-	end
-end
-if isfield(data, 'imu6')
-	data.imu6.numEvents = length(data.imu6.timeStamp);
-	if data.imu6.timeStamp(1) < info.firstTimeStamp
-		info.firstTimeStamp = data.imu6.timeStamp(1);
-	end
-	if data.imu6.timeStamp(end) > info.lastTimeStamp
-		info.lastTimeStamp = data.imu6.timeStamp(end);
-	end
-end
-if isfield(data, 'sample')
-	data.sample.numEvents = length(data.sample.timeStamp);
-	if data.sample.timeStamp(1) < info.firstTimeStamp
-		info.firstTimeStamp = data.sample.timeStamp(1);
-	end
-	if data.sample.timeStamp(end) > info.lastTimeStamp
-		info.lastTimeStamp = data.sample.timeStamp(end);
-	end
-end
-if isfield(data, 'ear')
-	data.ear.numEvents = length(data.ear.timeStamp);
-	if data.ear.timeStamp(1) < info.firstTimeStamp
-		info.firstTimeStamp = data.ear.timeStamp(1);
-	end
-	if data.ear.timeStamp(end) > info.lastTimeStamp
-		info.lastTimeStamp = data.ear.timeStamp(end);
-	end
-end
-
 %% Pack data
 
 % aedat.importParams is already there and should be unchanged
@@ -605,6 +542,10 @@ aedat.data = data;
 %% Find first and last time stamps        
 
 aedat = FindFirstAndLastTimeStamps(aedat);
+
+%% Add NumEvents field for each data type
+
+aedat = NumEventsByType(aedat);
 
 disp('Import finished')
 

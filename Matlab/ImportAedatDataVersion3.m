@@ -714,7 +714,6 @@ if specialNumEvents > 0
 	special.valid = specialValid(keepLogical); 
     special.timeStamp = specialTimeStamp(keepLogical);
     special.address = specialAddress(keepLogical);
-    special.numEvents = specialNumEvents;
     outputData.special = special;
 end
 
@@ -726,7 +725,6 @@ if polarityNumEvents > 0
     polarity.y			= polarityY(keepLogical);
     polarity.x			= polarityX(keepLogical);
     polarity.polarity	= polarityPolarity(keepLogical);
-    polarity.numEvents = polarityNumEvents;
     outputData.polarity = polarity;
 end
 
@@ -751,7 +749,6 @@ if frameNumEvents > 0
     frame.yLength				= frameYLength(keepLogical);
     frame.xPosition				= frameXPosition(keepLogical);
     frame.yPosition				= frameYPosition(keepLogical);
-    frame.numEvents = frameNumEvents;
     outputData.frame = frame;
 end
 
@@ -767,7 +764,6 @@ if imu6NumEvents > 0
     imu6.accelY		= imu6AccelY(keepLogical);
     imu6.accelZ		= imu6AccelZ(keepLogical);
     imu6.temperature = imu6Temperature(keepLogical);
-	imu6.numEvents = imu6NumEvents;
 	outputData.imu6 = imu6;
 end
 
@@ -778,7 +774,6 @@ if sampleNumEvents > 0
     sample.timeStamp	= sampleTimeStamp(keepLogical);
     sample.sampleType	= sampleSampleType(keepLogical);
     sample.sample		= sampleSample(keepLogical);
-    sample.numEvents = sampleNumEvents;
 	outputData.sample = sample;
 end
 
@@ -791,7 +786,6 @@ if earNumEvents > 0
     ear.channel		= earChannel(keepLogical);
     ear.neuron		= earNeuron(keepLogical);
     ear.filter		= earFilter(keepLogical);
-    ear.numEvents = earNumEvents;
     outputData.ear = ear;
 end
 
@@ -801,7 +795,6 @@ if point1DNumEvents > 0
     point1D.valid = point1DValid(keepLogical); % Only keep the valid field if non-valid events are possible
     point1D.timeStamp = point1DTimeStamp(keepLogical);
     point1D.value = point1DValue(keepLogical);
-    point1D.numEvents = point1DNumEvents;
     outputData.point1D = point1D;
 end
 
@@ -812,13 +805,13 @@ if point2DNumEvents > 0
     point2D.timeStamp = point2DTimeStamp(keepLogical);
     point2D.value1 = point2DValue1(keepLogical);
     point2D.value2 = point2DValue2(keepLogical);
-    point2D.numEvents = point2DNumEvents;
     outputData.point2D = point2D;
 end
 
 %% Calculate data volume by event type 
-% This excludes final packet for simplicity. 
+% This excludes the final packet for simplicity. 
 % It doesn't handle partial imports or invalid data.
+
 packetSizes = [info.packetPointers(2 : end) - info.packetPointers(1 : end - 1) - 28; 0];
 info.dataVolumeByEventType = {};
 eventTypesTemp = info.packetTypes;
@@ -837,11 +830,21 @@ end
 
 %% Remove invalid events
 
-if validOnly
+if validOnly && noData == false
 	aedat = RemoveInvalidEvents(aedat);
 end
 
-%% Find first and last time stamps        
+%% Add NumEvents field for each data type
 
-aedat = FindFirstAndLastTimeStamps(aedat);
+if noData == false
+    aedat = NumEventsByType(aedat);
+end
+
+%% Find first and last time stamps      
+
+if noData == false
+    aedat = FindFirstAndLastTimeStamps(aedat);
+end
+
+disp('Import finished')
 

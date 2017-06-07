@@ -1,17 +1,15 @@
-function PlotSpecial(input, numPlots, distributeBy)
+function PlotSpecial(aedat)
 
 %{
-2016_07_03 WIP!
-
-Takes 'input' - a data structure containing an imported .aedat file, 
+Takes 'aedat' - a data structure containing an imported .aedat file, 
 as created by ImportAedat, and creates a plots of special events,
 where the x axis is time and the y axis is special event type.
 %}
 
 figure
 hold all
-times = double(input.data.special.timeStamp)' / 1000000;
-addresses = single(input.data.special.address)';
+times = double(aedat.data.special.timeStamp)' / 1000000;
+addresses = single(aedat.data.special.address)';
 plot([times; times], [addresses - 0.4; addresses + 0.4], 'b')
 xlabel('Time (s)')
 set(gca,'YDir','reverse')
