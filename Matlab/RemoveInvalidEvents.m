@@ -2,7 +2,9 @@ function aedat = RemoveInvalidEvents(aedat)
 
 %{
 This function removes any events which are flagged as invalid, and then
-removes the 'valid' fields 
+removes the 'valid' fields. It's possible that all events get removed. In
+this case the data type field itself needs to be removed, but this should
+be handled by a subsequent call to NumEventsByType. 
 %}
 
 dbstop if error
@@ -15,7 +17,6 @@ end
 if isfield(aedat.data, 'special') && isfield(aedat.data.special, 'valid')
     aedat.data.special.timeStamp    = aedat.data.special.timeStamp  (aedat.data.special.valid);
     aedat.data.special.address      = aedat.data.special.address    (aedat.data.special.valid);
-    aedat.data.special.numEvents    = nnz(aedat.data.special.valid);
     aedat.data.special = rmfield(aedat.data.special, 'valid');
 end
 
@@ -26,7 +27,6 @@ if isfield(aedat.data, 'polarity') && isfield(aedat.data.polarity, 'valid')
     aedat.data.polarity.x           = aedat.data.polarity.x         (aedat.data.polarity.valid);
     aedat.data.polarity.y           = aedat.data.polarity.y         (aedat.data.polarity.valid);
     aedat.data.polarity.polarity    = aedat.data.polarity.polarity  (aedat.data.polarity.valid);
-    aedat.data.polarity.numEvents   = nnz(aedat.data.polarity.valid);
     aedat.data.polarity = rmfield(aedat.data.polarity, 'valid');
 end
 % Frames
@@ -42,7 +42,6 @@ if isfield(aedat.data, 'frame') && isfield(aedat.data.frame, 'valid')
     aedat.data.frame.roiId             = aedat.data.frame.roiID          (aedat.data.frame.valid);
     aedat.data.frame.colorChannels     = aedat.data.frame.colorChannels  (aedat.data.frame.valid);
     aedat.data.frame.colorFilter       = aedat.data.frame.colorFilter    (aedat.data.frame.valid);
-    aedat.data.frame.numEvents         = nnz(aedat.data.frame.valid);
     aedat.data.frame = rmfield(aedat.data.frame, 'valid');
 end
 % Imu6
@@ -56,7 +55,6 @@ if isfield(aedat.data, 'imu6') && isfield(aedat.data.imu6, 'valid')
     aedat.data.imu6.gyroY        = aedat.data.imu6.gyroY        (aedat.data.imu6.valid);
     aedat.data.imu6.gyroZ        = aedat.data.imu6.gyroZ        (aedat.data.imu6.valid);
     aedat.data.imu6.temperature  = aedat.data.imu6.temperature  (aedat.data.imu6.valid);
-    aedat.data.imu6.numEvents    = nnz(aedat.data.imu6.valid);
     aedat.data.imu6 = rmfield(aedat.data.imu6, 'valid');
 end
 
@@ -65,7 +63,6 @@ if isfield(aedat.data, 'sample') && isfield(aedat.data.sample, 'valid')
     aedat.data.sample.timeStamp     = aedat.data.sample.timeStamp   (aedat.data.sample.valid);
     aedat.data.sample.sampleType	= aedat.data.sample.sampleType  (aedat.data.sample.valid);
     aedat.data.sample.sample		= aedat.data.sample.sample      (aedat.data.sample.valid);
-    aedat.data.sample.numEvents     = nnz(aedat.data.sample.valid);
     aedat.data.sample = rmfield(aedat.data.sample, 'valid');
 end
 
@@ -75,7 +72,6 @@ if isfield(aedat.data, 'ear') && isfield(aedat.data.ear, 'valid')
     aedat.data.ear.channel		= aedat.data.ear.channel	(aedat.data.ear.valid);
     aedat.data.ear.neuron		= aedat.data.ear.neuron		(aedat.data.ear.valid);
     aedat.data.ear.filter		= aedat.data.ear.filter		(aedat.data.ear.valid);
-    aedat.data.ear.numEvents   = nnz(aedat.data.ear.valid);
     aedat.data.ear = rmfield(aedat.data.ear, 'valid');
 end
 
@@ -83,7 +79,6 @@ if isfield(aedat.data, 'point1D') && isfield(aedat.data.point1D, 'valid')
     aedat.data.point1D.valid        = aedat.data.point1D.valid        (aedat.data.point1D.valid); % Only keep the valid field if non-valid events are possible
     aedat.data.point1D.timeStamp    = aedat.data.point1D.timeStamp    (aedat.data.point1D.valid);
     aedat.data.point1D.value        = aedat.data.point1D.value        (aedat.data.point1D.valid);
-    aedat.data.point1D.numEvents    = nnz(aedat.data.point1D.valid);
     aedat.data.point1D = rmfield(aedat.data.point1D, 'valid');
 end
 
@@ -92,6 +87,5 @@ if isfield(aedat.data, 'point2D') && isfield(aedat.data.point2D, 'valid')
     aedat.data.point2D.timeStamp    = aedat.data.point2D.timeStamp  (aedat.data.point2D.valid);
     aedat.data.point2D.value1       = aedat.data.point2D.value1     (aedat.data.point2D.valid);
     aedat.data.point2D.value2       = aedat.data.point2D.value2     (aedat.data.point2D.valid);
-    aedat.data.point2D.numEvents    = nnz(aedat.data.point2D.valid);
     aedat.data.point2D = rmfield(aedat.data.point2D, 'valid');
 end

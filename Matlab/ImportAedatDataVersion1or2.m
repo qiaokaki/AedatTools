@@ -482,7 +482,7 @@ elseif strfind(info.source, 'Davis')
                                 			data.frame.samples{frameCount}(data.frame.samples{frameCount} > 32767) = 0;
 
 						end
-						% Copy over the reset of the info
+						% Copy over the rest of the info
 						data.frame.xPosition(frameCount) = data.frame.xPosition(frameIndex);
 						data.frame.yPosition(frameCount) = data.frame.yPosition(frameIndex);
 						data.frame.xLength(frameCount) = data.frame.xLength(frameIndex);
@@ -528,16 +528,18 @@ elseif strfind(info.source, 'Davis')
 		imuDataShiftBits = 12;
         rawData = bitshift(bitand(allAddr(imuLogical), imuDataMask), -imuDataShiftBits);
         % Now RawData is uint32, but the data is a signed int in the ls 16 bits. 
-		rawData = uint16(rawData);
-        rawData = typecast(rawData, 'int16');
-				
+		rawData = uint16(rawData); % Now any negative indicators are in the MSB
+        rawData = typecast(rawData, 'int16'); % Now the same numbers are interpretted as negatives
+        rawData = double(rawData); 
+        % Now the data is floating point, ready for conversion to physical units
+			
 		data.imu6.accelX			= rawData(1 : 7 : end - mod(nnz(imuLogical), 7)) * accelScale;	
 		data.imu6.accelY			= rawData(2 : 7 : end - mod(nnz(imuLogical), 7)) * accelScale;	
 		data.imu6.accelZ			= rawData(3 : 7 : end - mod(nnz(imuLogical), 7)) * accelScale;	
-		data.imu6.temperature	= rawData(4 : 7 : end - mod(nnz(imuLogical), 7)) * temperatureScale + temperatureOffset;	
-		data.imu6.gyroX			= rawData(5 : 7 : end - mod(nnz(imuLogical), 7)) * gyroScale;	
-		data.imu6.gyroY			= rawData(6 : 7 : end - mod(nnz(imuLogical), 7)) * gyroScale;	
-		data.imu6.gyroZ			= rawData(7 : 7 : end - mod(nnz(imuLogical), 7)) * gyroScale;	
+		data.imu6.gyroX			= rawData(4 : 7 : end - mod(nnz(imuLogical), 7)) * gyroScale;	
+		data.imu6.gyroY			= rawData(5 : 7 : end - mod(nnz(imuLogical), 7)) * gyroScale;	
+		data.imu6.gyroZ			= rawData(6 : 7 : end - mod(nnz(imuLogical), 7)) * gyroScale;	
+		data.imu6.temperature	= rawData(7 : 7 : end - mod(nnz(imuLogical), 7)) * temperatureScale + temperatureOffset;	
 		
 	end
 

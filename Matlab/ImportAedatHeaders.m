@@ -199,9 +199,8 @@ else
 end
 
 % Get the address space (dimensions) of the device
+% For vision sensors, this is a tuple [X Y]
 info.deviceAddressSpace = DeviceAddressSpace(info.source);
-    
-
 
 % Pack the result (importParams is already in aedat and need not be packed
 aedat.info = info;

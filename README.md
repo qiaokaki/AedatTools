@@ -11,7 +11,7 @@ https://inilabs.com/support/software/fileformat/
 
 The resulting structures are named 'aedat' and are usually both an input and sometimes the output of functions. 
 
-These structures contain up to four branches at the top level: importParams, exportParams, info and data. The data branch contains the actual event data, separated according to data type, following the conventions used in the aedat3 file format. 
+These structures contain up to four branches at the top level: importParams, exportParams, info and data. The data branch contains the actual event data, separated according to data type, following the conventions used in the aedat3 file format. info contains various meta data, including data held in the header lines of the file. Any xml contained in the header lines of a file is stored in the info.xml field. 
 
 ExportAedat2, ExportAedat3 and ExportRosBag functions export the data in a structure to the corresponding file format. 
 
@@ -23,10 +23,11 @@ Plot functions take a structure and plot some aspect of the data contained withi
 
 There are various utilities for manipulating the data, such as TrimTime, TrimSpace, Reorientate etc.
 
+Look at the provided example scripts for how to use these functions. 
 
 ## Supported devices and data types
 
-As of 2017_06, data types 0-3 (Special, Polarity, Frame and Imu6) are fully supported. Device types DVS128 and DAVIS are fully supported with the possible exception of  HetDavis (I haven't tried). There is some support for other data types, for example, the ImportAedat routines recognise DAS1 / cochlear / ear events, and most other event types - no dynapse support yet.
+As of 2017_06, data types 0-3 (Special, Polarity, Frame and Imu6) are almost fully supported. Device types DVS128 and DAVIS are fully supported with the possible exception of  HetDavis (I haven't tried). There is some support for other data types, for example, the ImportAedat routines recognise DAS1 / cochlear / ear events, and most other event types - no dynapse support yet.
 
 ## How to import from aedat files
 
@@ -53,13 +54,15 @@ From aedat version 3:
  
  ## Peculiarities
  
-frame samples are held in uint16 vectors, but they are in the range 0-1023 - i.e. 10-bit values. However the basic format assumes that reset frame subtraction has been performed. 
+frame samples are held in uint16 vectors, but they are in the range 0-1023 - i.e. 10-bit values. The basic format assumes that reset frame subtraction has been performed. 
 
-IMU units - import converts IMU samples to g (for accelation) and deg/s for angular velocity. ExportRosbag converts these to m/s^2 and rad/s respectively. 
+IMU units - import converts IMU samples to double precision floats in the units g (for accelation) and deg/s for angular velocity. ExportRosbag converts these to m/s^2 and rad/s respectively. 
 
 ## Outstanding issues
 
 Import from aedat2 currently doesn't have a good method for excluding data before any timestamp resets.
+
+ExportAedat2 supports polarity, frames and imu6; it doesn't put xml metadata back into the file header. 
 
 ExportRosbag not yet written in matlab, only python. 
 

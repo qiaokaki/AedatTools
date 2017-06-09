@@ -57,9 +57,8 @@ signalShiftBits = 9;
 frameData = aedat.data.frame;
 
 numFrames = frameData.numEvents;
-deviceAddressSpace = DeviceAddressSpace(aedat.info.source);
-xDim = deviceAddressSpace(1);
-yDim = deviceAddressSpace(2);
+xDim = aedat.info.deviceAddressSpace(1);
+yDim = aedat.info.deviceAddressSpace(2);
 numPixels = xDim * yDim;
 
 % Allocate horizontal vectors to hold output data.

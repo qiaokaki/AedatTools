@@ -11,7 +11,8 @@ Call syntax is:
 PlotAedat(input, numPlots, distributeBy)
 'distributeBy' can either be 'time' or 'events'
 %}
-PlotAedat(aedat, 10, 'time')
+PlotAedat(aedat, 10, 'time') % For polarity and frame data, give 10 sub-plots, 
+                             % distributed equally by time
 
 %{ 
 Alternatively, you can call just the function to plot a  specific data
@@ -44,4 +45,6 @@ special events of a chose type:
 PeristimulusEventPlot(aedat, specialEventType, timeBeforeUs, timeAfterUs, stepStimuli, maxStimuli, minX, maxX, minY, maxY)
 Example - look at polarity events for 1 ms either side of the start of a frame exposure:
 %}
-PeristimulusEventPlot(aedat, 16, 1000, 1000)
+PeristimulusEventPlot(aedat, 16, 1000, 1000) % 16 is the special event type for start of frame exposure (not present in aedat2 recordings)
+
+
