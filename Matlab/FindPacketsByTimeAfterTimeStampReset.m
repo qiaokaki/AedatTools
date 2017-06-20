@@ -18,16 +18,9 @@ if ~isfield(aedat.info, 'packetTimeStamps')
     disp('No packet indices found.')
     return
 end
-ts = int64(aedat.info.packetTimeStamps);
-lastTsReset = find(ts(2 : end) - ts(1 : end - 1) < 0, 1, 'last');
-if ~isempty(lastTsReset)
-    disp('Timestamp reset found')
-    firstPacket = lastTsReset + 1;
-else
-    disp('Timestamp reset not found')
-    firstPacket = 1;
-end
-startPacket = find(ts(firstPacket : end) >= startTime * 1e6, 1, 'first');
+aedat = FindFirstPacketAfterLastTimeStampReset(aedat);
+firstPacket = aedat.info.firstPacketAfterLastTimeStampReset;
+startPacket = find(aedat.info.packetTimeStamps(firstPacket : end) >= startTime * 1e6, 1, 'first');
 if isempty(startPacket)
     disp('No packets found in time range (after any timestamp resets)')
     startPacket = 0;
@@ -35,4 +28,4 @@ if isempty(startPacket)
     return
 end
 startPacket = startPacket + firstPacket - 1;
-endPacket = find(ts <= endTime * 1e6, 1, 'last');
+endPacket = find(aedat.info.packetTimeStamps <= endTime * 1e6, 1, 'last');

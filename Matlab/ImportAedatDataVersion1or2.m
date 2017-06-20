@@ -244,7 +244,7 @@ if strcmp(info.source, 'Das1')
 	sampleMask = hex2dec('1000');
 	sampleLogical = bitand(allAddr, sampleMask);
 	earLogical = ~sampleLogical;
-	if (~isfield(info, 'dataTypes') || any(cellfun(cellFind('ear'), info.dataTypes))) && any(sampleLogical)
+	if (~isfield(importParams, 'dataTypes') || any(cellfun(cellFind('ear'), importParams.dataTypes))) && any(sampleLogical)
 		% ADC Samples
 		data.sample.timeStamp = allTs(sampleLogical);
 		% Sample type
@@ -255,7 +255,7 @@ if strcmp(info.source, 'Das1')
 		sampleDataMask = hex2dec('3FF'); % take ADC scanner sync and ADC channel together for this value - kludge - the alternative would be to introduce a special event type to represent the scanner wrapping around
 		data.sample.sample = uint32(bitand(allAddr(sampleLogical), sampleTypeMask));
 	end
-	if (~isfield(info, 'dataTypes') || any(cellfun(cellFind('ear'), info.dataTypes))) && any(earLogical)
+	if (~isfield(importParams, 'dataTypes') || any(cellfun(cellFind('ear'), importParams.dataTypes))) && any(earLogical)
 		% EAR events
 		data.ear.timeStamp = allTs(earLogical); 
 		% Filter (0 = BPF, 1 = SOS)
@@ -282,12 +282,12 @@ elseif strcmp(info.source, 'Dvs128')
 	specialMask = hex2dec ('8000');
 	specialLogical = bitand(allAddr, specialMask);
 	polarityLogical = ~specialLogical;
-	if (~isfield(info, 'dataTypes') || any(cellfun(cellFind('special'), info.dataTypes))) && any(specialLogical)
+	if (~isfield(importParams, 'dataTypes') || any(cellfun(cellFind('special'), importParams.dataTypes))) && any(specialLogical)
 		% Special events
 		data.special.timeStamp = allTs(specialLogical);
 		% No need to create address field, since there is only one type of special event
 	end
-	if (~isfield(info, 'dataTypes') || any(cellfun(cellFind('polarity'), info.dataTypes))) && any(polarityLogical)
+	if (~isfield(importParams, 'dataTypes') || any(cellfun(cellFind('polarity'), importParams.dataTypes))) && any(polarityLogical)
 		% Polarity events
 		data.polarity.timeStamp = allTs(polarityLogical); % Use the negation of the special mask for polarity events
 		% Y addresses
@@ -333,7 +333,7 @@ elseif strfind(info.source, 'Davis')
 %% Davis special events
 
 	% Special events
-	if (~isfield(info, 'dataTypes') || any(cellfun(cellFind('special'), info.dataTypes))) && any(specialLogical)
+	if (~isfield(importParams, 'dataTypes') || any(cellfun(cellFind('special'), importParams.dataTypes))) && any(specialLogical)
 		disp('Importing special events ...')
         data.special.timeStamp = allTs(specialLogical);
 		% No need to create address field, since there is only one type of special event
@@ -342,7 +342,7 @@ elseif strfind(info.source, 'Davis')
 %% Davis polarity events
     
 	% Polarity (DVS) events
-	if (~isfield(info, 'dataTypes') || any(cellfun(cellFind('polarity'), info.dataTypes))) && any(polarityLogical)
+	if (~isfield(importParams, 'dataTypes') || any(cellfun(cellFind('polarity'), importParams.dataTypes))) && any(polarityLogical)
 		disp('Importing polarity events ...')
 		data.polarity.timeStamp = allTs(polarityLogical);
 		% Y addresses
@@ -358,7 +358,7 @@ elseif strfind(info.source, 'Davis')
     
 	% NOTE This code currently only handles global shutter readout ...
    
-	if (~isfield(info, 'dataTypes') || any(cellfun(cellFind('frame'), info.dataTypes))) && any(frameLogical)
+	if (~isfield(importParams, 'dataTypes') || any(cellfun(cellFind('frame'), importParams.dataTypes))) && any(frameLogical)
 		disp('Importing frames ...')
 		% These two are defined in the format, but not actually necessary to establish the frame boundaries
 		% frameLastEventMask = hex2dec ('FFFFFC00');
@@ -508,7 +508,7 @@ elseif strfind(info.source, 'Davis')
 		% These come in blocks of 7, for the 7 different values produced in
 		% a single sample; the following code recomposes these
 		% 7 words are sent in series, these being 3 axes for accel, temperature, and 3 axes for gyro
-	if (~isfield(info, 'dataTypes') || any(cellfun(cellFind('imu6'), info.dataTypes))) && any(imuLogical)
+	if (~isfield(importParams, 'dataTypes') || any(cellfun(cellFind('imu6'), importParams.dataTypes))) && any(imuLogical)
 		disp('Importing imu6 events ...')
 		if mod(nnz(imuLogical), 7) > 0 
 			%error('The number of IMU samples is not divisible by 7, so IMU samples are not interpretable')
@@ -536,10 +536,10 @@ elseif strfind(info.source, 'Davis')
 		data.imu6.accelX			= rawData(1 : 7 : end - mod(nnz(imuLogical), 7)) * accelScale;	
 		data.imu6.accelY			= rawData(2 : 7 : end - mod(nnz(imuLogical), 7)) * accelScale;	
 		data.imu6.accelZ			= rawData(3 : 7 : end - mod(nnz(imuLogical), 7)) * accelScale;	
-		data.imu6.gyroX			= rawData(4 : 7 : end - mod(nnz(imuLogical), 7)) * gyroScale;	
-		data.imu6.gyroY			= rawData(5 : 7 : end - mod(nnz(imuLogical), 7)) * gyroScale;	
-		data.imu6.gyroZ			= rawData(6 : 7 : end - mod(nnz(imuLogical), 7)) * gyroScale;	
-		data.imu6.temperature	= rawData(7 : 7 : end - mod(nnz(imuLogical), 7)) * temperatureScale + temperatureOffset;	
+		data.imu6.temperature	= rawData(4 : 7 : end - mod(nnz(imuLogical), 7)) * temperatureScale + temperatureOffset;	
+		data.imu6.gyroX			= rawData(5 : 7 : end - mod(nnz(imuLogical), 7)) * gyroScale;	
+		data.imu6.gyroY			= rawData(6 : 7 : end - mod(nnz(imuLogical), 7)) * gyroScale;	
+		data.imu6.gyroZ			= rawData(7 : 7 : end - mod(nnz(imuLogical), 7)) * gyroScale;	
 		
 	end
 

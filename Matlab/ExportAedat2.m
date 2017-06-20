@@ -140,10 +140,10 @@ if isfield(aedat.data, 'imu6')
     accelXFlag      = 0 * 2 ^ 28;
     accelYFlag      = 1 * 2 ^ 28;
     accelZFlag      = 2 * 2 ^ 28;
-    gyroXFlag       = 3 * 2 ^ 28;
-    gyroYFlag       = 4 * 2 ^ 28;
-    gyroZFlag       = 5 * 2 ^ 28;
-    temperatureFlag = 6 * 2 ^ 28;
+    temperatureFlag = 3 * 2 ^ 28;
+    gyroXFlag       = 4 * 2 ^ 28;
+    gyroYFlag       = 5 * 2 ^ 28;
+    gyroZFlag       = 6 * 2 ^ 28;
     
     accelX = aedat.data.imu6.accelX; % conversion from g to full scale, and shift bits
     accelX = int16(accelX * 8192); % conversion from g to full scale 16 range
@@ -172,6 +172,15 @@ if isfield(aedat.data, 'imu6')
     accelZ = bitshift(accelZ, 12); % shift bits
     accelZ = accelZ + imuFlag + accelZFlag;
 
+    temp = aedat.data.imu6.temperature; % conversion from g to full scale, and shift bits
+    temp = int16((temp - 35) * 340); % conversion from K to full scale 16 range
+    temp = [temp zeros(aedat.data.imu6.numEvents, 1, 'int16')];
+    temp = temp';
+    temp = temp(:);
+    temp = typecast(temp, 'uint32'); 
+    temp = bitshift(temp, 12); % shift bits
+    temp = temp + imuFlag + temperatureFlag;
+    
     gyroX = aedat.data.imu6.gyroX; % conversion from g to full scale, and shift bits
     gyroX = int16(gyroX * 65.5); % conversion from g to full scale 16 range
     gyroX = [gyroX zeros(aedat.data.imu6.numEvents, 1, 'int16')];
@@ -199,16 +208,7 @@ if isfield(aedat.data, 'imu6')
     gyroZ = bitshift(gyroZ, 12); % shift bits
     gyroZ = gyroZ + imuFlag + gyroZFlag;
 
-    temp = aedat.data.imu6.temperature; % conversion from g to full scale, and shift bits
-    temp = int16((temp - 35) * 340); % conversion from K to full scale 16 range
-    temp = [temp zeros(aedat.data.imu6.numEvents, 1, 'int16')];
-    temp = temp';
-    temp = temp(:);
-    temp = typecast(temp, 'uint32'); 
-    temp = bitshift(temp, 12); % shift bits
-    temp = temp + imuFlag + temperatureFlag;
-
-    allData = [accelX accelY accelZ gyroX gyroY gyroZ temp];
+    allData = [accelX accelY accelZ temp gyroX gyroY gyroZ];
     allData = allData';
     allData = allData(:);
 

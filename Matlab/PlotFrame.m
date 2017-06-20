@@ -1,7 +1,6 @@
 function PlotFrame(aedat, numPlots, distributeBy, minTime, maxTime, transpose, flipVertical, flipHorizontal)
 
 %{
-TODO CHANGE DEFAULT FLIP TO MATCH OPENCV STANDARD
 Takes 'aedat' - a data structure containing an imported .aedat file, 
 as created by ImportAedat, and creates a series of images from selected
 frames.
@@ -12,6 +11,7 @@ The frame events are then chosen as those nearest to the time points.
 If the 'distributeBy' is 'time' then if the further parameters 'minTime' 
 and 'maxTime' are used then the time window used is only between
 those limits.
+flipVertical is assumed true, so that y=0 is considered the top of the image.
 %}
 
 if ~exist('distributeBy', 'var')
@@ -77,7 +77,7 @@ for plotCount = 1 : numPlots
 	end
     colormap('gray')
 	axis equal tight
-	if exist('flipVertical', 'var') && flipVertical
+	if ~exist('flipVertical', 'var') || ~flipVertical
 		set(gca, 'YDir', 'reverse')
 	end
 	if exist('flipHorizontal', 'var') && flipHorizontal

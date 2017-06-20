@@ -23,7 +23,6 @@ if flipX
         aedat.data.frame.samples{frameIndex} ...
             = aedat.data.frame.samples{frameIndex}(:, end: -1 : 1);
     end
-    aedat.info.deviceAddressSpace(1) - 
     aedat.data.frame.xPosition  = aedat.info.deviceAddressSpace(1) ...
                                     - aedat.data.frame.xPosition;
 end

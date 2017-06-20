@@ -39,6 +39,7 @@ if numBins == data.numEvents
     gyroX  = data.gyroX;
     gyroY  = data.gyroY;
     gyroZ  = data.gyroZ;
+    temperature   = data.temperature;
 else
     accelX = zeros(numBins, 1);
     accelY = zeros(numBins, 1);
@@ -46,6 +47,7 @@ else
     gyroX  = zeros(numBins, 1);
     gyroY  = zeros(numBins, 1);
     gyroZ  = zeros(numBins, 1);
+    temperature = zeros(numBins, 1);
     
     for bin = 1 : numBins
 		firstTimeStampIndex = find(data.timeStamp >= timeBinBoundariesUs(bin), 1, 'first');
@@ -57,14 +59,13 @@ else
 			gyroX(bin) = mean(data.gyroX(firstTimeStampIndex : lastTimeStampIndex));
 			gyroY(bin) = mean(data.gyroY(firstTimeStampIndex : lastTimeStampIndex));
 			gyroZ(bin) = mean(data.gyroZ(firstTimeStampIndex : lastTimeStampIndex));
+			temperature(bin) = mean(data.temperature(firstTimeStampIndex : lastTimeStampIndex));
 		end
     end
 end
 
 figure
 legendLocal = {};
-
-subplot(2, 1, 1)
 hold all
 plot(timeBinCentresS, accelX, '-')
 legendLocal = [legendLocal 'accelX'];
@@ -73,10 +74,11 @@ legendLocal = [legendLocal 'accelY'];
 plot(timeBinCentresS, accelZ, '-')
 legendLocal = [legendLocal 'accelZ'];
 xlabel('Time (s)')
-ylabel('Acceleration (m/s^2? g?)')
+ylabel('Acceleration (g)')
 legend(legendLocal)
 
-subplot(2, 1, 2)
+figure
+legendLocal = {};
 hold all
 plot(timeBinCentresS, gyroX)
 legendLocal = [legendLocal 'gyroX'];
@@ -85,8 +87,11 @@ legendLocal = [legendLocal 'gyroY'];
 plot(timeBinCentresS, gyroZ)
 legendLocal = [legendLocal 'gyroZ'];
 xlabel('Time (s)')
-ylabel('Angular veloicty (RPS? deg/s?)')
+ylabel('Angular velocity (deg/s)')
 legend(legendLocal)
 
-
+figure
+plot(timeBinCentresS, temperature)
+xlabel('Time (s)')
+ylabel('temperature (C)')
 

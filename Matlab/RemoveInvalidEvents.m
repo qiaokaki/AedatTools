@@ -39,7 +39,7 @@ if isfield(aedat.data, 'frame') && isfield(aedat.data.frame, 'valid')
     aedat.data.frame.yLength           = aedat.data.frame.yLength        (aedat.data.frame.valid);
     aedat.data.frame.xPosition         = aedat.data.frame.xPosition      (aedat.data.frame.valid);
     aedat.data.frame.yPosition         = aedat.data.frame.yPosition      (aedat.data.frame.valid);
-    aedat.data.frame.roiId             = aedat.data.frame.roiID          (aedat.data.frame.valid);
+    aedat.data.frame.roiId             = aedat.data.frame.roiId          (aedat.data.frame.valid);
     aedat.data.frame.colorChannels     = aedat.data.frame.colorChannels  (aedat.data.frame.valid);
     aedat.data.frame.colorFilter       = aedat.data.frame.colorFilter    (aedat.data.frame.valid);
     aedat.data.frame = rmfield(aedat.data.frame, 'valid');

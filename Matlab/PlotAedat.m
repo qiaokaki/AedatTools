@@ -38,4 +38,4 @@ if isfield(aedat.data, 'point2D')
 	PlotPoint2D(aedat);
 end
 
-PlotPacketTimeStamps(aedat, newFigure)
+PlotPacketTimeStamps(aedat, false)

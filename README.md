@@ -58,6 +58,8 @@ frame samples are held in uint16 vectors, but they are in the range 0-1023 - i.e
 
 IMU units - import converts IMU samples to double precision floats in the units g (for accelation) and deg/s for angular velocity. ExportRosbag converts these to m/s^2 and rad/s respectively. 
 
+timstamps are uint32 when imported from aedat2 and uint64 when imported from aedat3. There is as yet no intelligent handling of the timestamp wrap events in aedat2.
+
 ## Outstanding issues
 
 Import from aedat2 currently doesn't have a good method for excluding data before any timestamp resets.

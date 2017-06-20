@@ -1,7 +1,5 @@
 function PlotPolarity(aedat, numPlots, distributeBy, minTime, maxTime, proportionOfPixels, contrast, transpose, flipVertical, flipHorizontal)
 
-%TODO CHANGE DEFAULT FLIP TO MATCH OPENCV STANDARD
-
 % Note that now Reorientate and FrameFromEvents functions provide some
 % of the needed functionality, this function could be rewritten...
 
@@ -15,6 +13,7 @@ around which data is rendered are chosen.
 The events are then recruited by the time points, spreading out until
 either they are about to overlap with a neighbouring point, or until 
 a certain ratio of an array full is reached. 
+flipVertical is assumed true, so that y=0 is considered the top of the image.
 %}
 
 % The proportion of an array-full of events which is shown on a plot
@@ -105,10 +104,10 @@ for plotCount = 1 : numPlots
 	image(frameFromEvents)
     colormap(redgreencmap(contrast * 2 + 1))
 	axis equal tight
-	if exist('flipVertical', 'var') && flipVertical
+	if ~exist('flipVertical', 'var') || flipVertical
 		set(gca, 'YDir', 'reverse')
-	end
-	if exist('flipHorizontal', 'var') && flipHorizontal
+    end
+    if exist('flipHorizontal', 'var') && flipHorizontal
 		set(gca, 'XDir', 'reverse')
     end
 	title([num2str(double(aedat.data.polarity.timeStamp(eventIndex)) / 1000000) ' s'])

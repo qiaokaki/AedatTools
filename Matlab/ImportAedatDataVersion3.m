@@ -151,16 +151,12 @@ else
 	startPacket = 1;
 end
 
-if isfield(importParams, 'modPacket')
-    modPacket = importParams.modPacket;
-else
-	modPacket = 1;
-end
 if isfield(importParams, 'endPacket')
 	endPacket = importParams.endPacket;
 else
 	endPacket = inf;
 end
+
 if startPacket > endPacket 
 	error([	'The startPacket parameter is ' num2str(startPacket) ...
 		', but the endPacket parameter is ' num2str(endPacket) ]);
@@ -225,6 +221,7 @@ end
 
 packetCount = 0;
 
+% Has this file already been indexed in a previous pass?
 if isfield(info, 'packetPointers')
 	packetTypes = info.packetTypes;
 	packetPointers = info.packetPointers;
@@ -239,46 +236,49 @@ else
     packetTimeStamps = zeros(1000, 1, 'uint64');
 end
 
-% Create structures to hold the output data
+if noData == false
+    % Create structures to hold the output data
 
-specialNumEvents	= 0;
-specialValid		= false(0); % initialising this tells the first pass 
-								 % to set up the arrays with the size 
-								 % necessary for the initial packet
-specialDataMask = hex2dec('7E');
-specialDataShiftBits = 1;
+    specialNumEvents	= 0;
+    specialValid		= false(0); % initialising this tells the first pass 
+                                     % to set up the arrays with the size 
+                                     % necessary for the initial packet
+    specialDataMask = hex2dec('7E');
+    specialDataShiftBits = 1;
 
-polarityNumEvents	= 0;
-polarityValid		= false(0);
-polarityYMask = hex2dec('1FFFC');
-polarityYShiftBits = 2;
-polarityXMask = hex2dec('FFFE0000');
-polarityXShiftBits = 17;
+    polarityNumEvents	= 0;
+    polarityValid		= false(0);
+    polarityYMask = hex2dec('1FFFC');
+    polarityYShiftBits = 2;
+    polarityXMask = hex2dec('FFFE0000');
+    polarityXShiftBits = 17;
 
-frameNumEvents	= 0;
-frameValid		= false(0);
-frameColorChannelsMask = hex2dec('E');
-frameColorChannelsShiftBits = 1;
-frameColorFilterMask = hex2dec('70');
-frameColorFilterShiftBits = 4;
-frameRoiIdMask = hex2dec('3F80');
-frameRoiIdShiftBits = 7;
+    frameNumEvents	= 0;
+    frameValid		= false(0);
+    frameColorChannelsMask = hex2dec('E');
+    frameColorChannelsShiftBits = 1;
+    frameColorFilterMask = hex2dec('70');
+    frameColorFilterShiftBits = 4;
+    frameRoiIdMask = hex2dec('3F80');
+    frameRoiIdShiftBits = 7;
 
-imu6NumEvents	= 0;
-imu6Valid		= false(0);
+    imu6NumEvents	= 0;
+    imu6Valid		= false(0);
 
-sampleNumEvents	= 0;
-sampleValid		= false(0);
+    sampleNumEvents	= 0;
+    sampleValid		= false(0);
 
-earNumEvents	= 0;
-earValid		= false(0);
+    earNumEvents	= 0;
+    earValid		= false(0);
 
-point1DNumEvents = 0;
-point1DValid	= false(0);
+    point1DNumEvents = 0;
+    point1DValid	= false(0);
 
-point2DNumEvents = 0;
-point2DValid	= false(0);
-
+    point2DNumEvents = 0;
+    point2DValid	= false(0);
+end
+    
+    
 cellFind = @(string)(@(cellContents)(strcmp(string, cellContents)));
 
 % Go back to the beginning of the data
@@ -302,7 +302,7 @@ end
 % If the file has already been indexed (PARTIAL INDEXING NOT HANDLED), and
 % we are using modPacket to skip a proportion of the data, then use this
 % flag to speed up the loop
-modSkipping = isfield(info, 'packetPointers') && modpacket > 1;
+modSkipping = isfield(info, 'packetPointers') && modPacket > 1;
 
 
 while true % implement the exit conditions inside the loop - allows to distinguish between different types of exit
@@ -330,7 +330,7 @@ while true % implement the exit conditions inside the loop - allows to distingui
 	if mod(packetCount, 100) == 0
 		disp(['packet: ' num2str(packetCount) '; file position: ' num2str(floor(ftell(fileHandle) / 1000000)) ' MB'])
 	end
-	if info.startPacket > packetCount || mod(packetCount, info.modPacket) > 0 
+	if startPacket > packetCount || mod(packetCount, modPacket) > 0 
 		% Ignore this packet as its count is too low
 		eventSize = typecast(header(5:8), 'int32');
 		eventNumber = typecast(header(21:24), 'int32');
@@ -377,7 +377,7 @@ while true % implement the exit conditions inside the loop - allows to distingui
                             specialValid		= false(eventNumber, 1);
                             specialTimeStamp	= uint64(zeros(eventNumber, 1));
                             specialAddress		= uint32(zeros(eventNumber, 1));
-                        else	
+                        else
                             while eventNumber > currentLength - specialNumEvents
                                 specialValid		= [specialValid;		false(currentLength, 1)];
                                 specialTimeStamp	= [specialTimeStamp;	uint64(zeros(currentLength, 1))];
@@ -696,120 +696,121 @@ while true % implement the exit conditions inside the loop - allows to distingui
 	end
 end
 
-%% Calculate some basic stats
+%% Clip data arrays to correct size
 
+if noData == false
+
+    outputData = struct;
+
+    if specialNumEvents > 0
+        keepLogical = false(size(specialValid, 1), 1);
+        keepLogical(1:specialNumEvents) = true; 
+        special.valid = specialValid(keepLogical); 
+        special.timeStamp = specialTimeStamp(keepLogical);
+        special.address = specialAddress(keepLogical);
+        outputData.special = special;
+    end
+
+    if polarityNumEvents > 0
+        keepLogical = false(size(polarityValid, 1), 1);
+        keepLogical(1:polarityNumEvents) = true; 
+        polarity.valid = polarityValid(keepLogical);
+        polarity.timeStamp	= polarityTimeStamp(keepLogical);
+        polarity.y			= polarityY(keepLogical);
+        polarity.x			= polarityX(keepLogical);
+        polarity.polarity	= polarityPolarity(keepLogical);
+        outputData.polarity = polarity;
+    end
+
+    if frameNumEvents > 0
+        keepLogical = false(size(frameValid, 1), 1);
+        keepLogical(1:frameNumEvents) = true; 
+        frame.valid = frameValid(keepLogical);
+        frame.roiId					= frameRoiId(keepLogical);
+        frame.colorChannels			= frameColorChannels(keepLogical);
+        frame.colorFilter			= frameColorFilter(keepLogical);
+        if simplifyFrameTimeStamps
+            frame.timeStampStart	= frameTimeStampStart(keepLogical);
+            frame.timeStampEnd		= frameTimeStampEnd(keepLogical);
+        else
+            frame.timeStampFrameStart	= frameTimeStampFrameStart(keepLogical);
+            frame.timeStampFrameEnd		= frameTimeStampFrameEnd(keepLogical);
+            frame.timeStampExposureStart = frameTimeStampExposureStart(keepLogical);
+            frame.timeStampExposureEnd	= frameTimeStampExposureEnd(keepLogical);
+        end
+        frame.samples				= frameSamples(keepLogical);
+        frame.xLength				= frameXLength(keepLogical);
+        frame.yLength				= frameYLength(keepLogical);
+        frame.xPosition				= frameXPosition(keepLogical);
+        frame.yPosition				= frameYPosition(keepLogical);
+        outputData.frame = frame;
+    end
+
+    if imu6NumEvents > 0
+        keepLogical = false(size(imu6Valid, 1), 1);
+        keepLogical(1:imu6NumEvents) = true; 
+        imu6.valid = imu6Valid(keepLogical); % Only keep the valid field if non-valid events are possible
+        imu6.timeStamp	= imu6TimeStamp(keepLogical);
+        imu6.gyroX		= imu6GyroX(keepLogical);
+        imu6.gyroY		= imu6GyroY(keepLogical);
+        imu6.gyroZ		= imu6GyroZ(keepLogical);
+        imu6.accelX		= imu6AccelX(keepLogical);
+        imu6.accelY		= imu6AccelY(keepLogical);
+        imu6.accelZ		= imu6AccelZ(keepLogical);
+        imu6.temperature = imu6Temperature(keepLogical);
+        outputData.imu6 = imu6;
+    end
+
+    if sampleNumEvents > 0
+        keepLogical = false(size(sampleValid, 1), 1);
+        keepLogical(1:sampleNumEvents) = true; 
+        sample.valid = sampleValid(keepLogical); % Only keep the valid field if non-valid events are possible
+        sample.timeStamp	= sampleTimeStamp(keepLogical);
+        sample.sampleType	= sampleSampleType(keepLogical);
+        sample.sample		= sampleSample(keepLogical);
+        outputData.sample = sample;
+    end
+
+    if earNumEvents > 0
+        keepLogical = false(size(earValid, 1), 1);
+        keepLogical(1:earNumEvents) = true; 
+        ear.valid = earValid(keepLogical); % Only keep the valid field if non-valid events are possible
+        ear.timeStamp	= earTimeStamp(keepLogical);
+        ear.position	= earosition(keepLogical);
+        ear.channel		= earChannel(keepLogical);
+        ear.neuron		= earNeuron(keepLogical);
+        ear.filter		= earFilter(keepLogical);
+        outputData.ear = ear;
+    end
+
+    if point1DNumEvents > 0
+        keepLogical = false(size(point1DValid, 1), 1);
+        keepLogical(1:point1DNumEvents) = true; 
+        point1D.valid = point1DValid(keepLogical); % Only keep the valid field if non-valid events are possible
+        point1D.timeStamp = point1DTimeStamp(keepLogical);
+        point1D.value = point1DValue(keepLogical);
+        outputData.point1D = point1D;
+    end
+
+    if point2DNumEvents > 0
+        keepLogical = false(size(point2DValid, 1), 1);
+        keepLogical(1:point2DNumEvents) = true; 
+        point2D.valid = point2DValid(keepLogical); % Only keep the valid field if non-valid events are possible
+        point2D.timeStamp = point2DTimeStamp(keepLogical);
+        point2D.value1 = point2DValue1(keepLogical);
+        point2D.value2 = point2DValue2(keepLogical);
+        outputData.point2D = point2D;
+    end
+end
+
+%% Pack packet info 
 info.packetTypes	= packetTypes(1 : packetCount);
 info.packetPointers	= packetPointers(1 : packetCount);
 info.packetTimeStamps	= packetTimeStamps(1 : packetCount);
 
-%% Clip data arrays to correct size
+%% Calculate data volume by type
 
-if noData == false
-    outputData = struct;
-end
-
-if specialNumEvents > 0
-	keepLogical = false(size(specialValid, 1), 1);
-	keepLogical(1:specialNumEvents) = true; 
-	special.valid = specialValid(keepLogical); 
-    special.timeStamp = specialTimeStamp(keepLogical);
-    special.address = specialAddress(keepLogical);
-    outputData.special = special;
-end
-
-if polarityNumEvents > 0
-	keepLogical = false(size(polarityValid, 1), 1);
-	keepLogical(1:polarityNumEvents) = true; 
-	polarity.valid = polarityValid(keepLogical);
-    polarity.timeStamp	= polarityTimeStamp(keepLogical);
-    polarity.y			= polarityY(keepLogical);
-    polarity.x			= polarityX(keepLogical);
-    polarity.polarity	= polarityPolarity(keepLogical);
-    outputData.polarity = polarity;
-end
-
-if frameNumEvents > 0
-	keepLogical = false(size(frameValid, 1), 1);
-	keepLogical(1:frameNumEvents) = true; 
-	frame.valid = frameValid(keepLogical);
-	frame.roiId					= frameRoiId(keepLogical);
-    frame.colorChannels			= frameColorChannels(keepLogical);
-    frame.colorFilter			= frameColorFilter(keepLogical);
-    if simplifyFrameTimeStamps
-        frame.timeStampStart	= frameTimeStampStart(keepLogical);
-        frame.timeStampEnd		= frameTimeStampEnd(keepLogical);
-    else
-        frame.timeStampFrameStart	= frameTimeStampFrameStart(keepLogical);
-        frame.timeStampFrameEnd		= frameTimeStampFrameEnd(keepLogical);
-        frame.timeStampExposureStart = frameTimeStampExposureStart(keepLogical);
-        frame.timeStampExposureEnd	= frameTimeStampExposureEnd(keepLogical);
-    end
-    frame.samples				= frameSamples(keepLogical);
-    frame.xLength				= frameXLength(keepLogical);
-    frame.yLength				= frameYLength(keepLogical);
-    frame.xPosition				= frameXPosition(keepLogical);
-    frame.yPosition				= frameYPosition(keepLogical);
-    outputData.frame = frame;
-end
-
-if imu6NumEvents > 0
-	keepLogical = false(size(imu6Valid, 1), 1);
-	keepLogical(1:imu6NumEvents) = true; 
-    imu6.valid = imu6Valid(keepLogical); % Only keep the valid field if non-valid events are possible
-    imu6.timeStamp	= imu6TimeStamp(keepLogical);
-    imu6.gyroX		= imu6GyroX(keepLogical);
-    imu6.gyroY		= imu6GyroY(keepLogical);
-    imu6.gyroZ		= imu6GyroZ(keepLogical);
-    imu6.accelX		= imu6AccelX(keepLogical);
-    imu6.accelY		= imu6AccelY(keepLogical);
-    imu6.accelZ		= imu6AccelZ(keepLogical);
-    imu6.temperature = imu6Temperature(keepLogical);
-	outputData.imu6 = imu6;
-end
-
-if sampleNumEvents > 0
-	keepLogical = false(size(sampleValid, 1), 1);
-	keepLogical(1:sampleNumEvents) = true; 
-    sample.valid = sampleValid(keepLogical); % Only keep the valid field if non-valid events are possible
-    sample.timeStamp	= sampleTimeStamp(keepLogical);
-    sample.sampleType	= sampleSampleType(keepLogical);
-    sample.sample		= sampleSample(keepLogical);
-	outputData.sample = sample;
-end
-
-if earNumEvents > 0
-	keepLogical = false(size(earValid, 1), 1);
-	keepLogical(1:earNumEvents) = true; 
-    ear.valid = earValid(keepLogical); % Only keep the valid field if non-valid events are possible
-    ear.timeStamp	= earTimeStamp(keepLogical);
-    ear.position	= earosition(keepLogical);
-    ear.channel		= earChannel(keepLogical);
-    ear.neuron		= earNeuron(keepLogical);
-    ear.filter		= earFilter(keepLogical);
-    outputData.ear = ear;
-end
-
-if point1DNumEvents > 0
-	keepLogical = false(size(point1DValid, 1), 1);
-	keepLogical(1:point1DNumEvents) = true; 
-    point1D.valid = point1DValid(keepLogical); % Only keep the valid field if non-valid events are possible
-    point1D.timeStamp = point1DTimeStamp(keepLogical);
-    point1D.value = point1DValue(keepLogical);
-    outputData.point1D = point1D;
-end
-
-if point2DNumEvents > 0
-	keepLogical = false(size(point2DValid, 1), 1);
-	keepLogical(1:point2DNumEvents) = true; 
-    point2D.valid = point2DValid(keepLogical); % Only keep the valid field if non-valid events are possible
-    point2D.timeStamp = point2DTimeStamp(keepLogical);
-    point2D.value1 = point2DValue1(keepLogical);
-    point2D.value2 = point2DValue2(keepLogical);
-    outputData.point2D = point2D;
-end
-
-%% Calculate data volume by event type 
-% This excludes the final packet for simplicity. 
+% This calculation excludes the final packet for simplicity. 
 % It doesn't handle partial imports or invalid data.
 
 packetSizes = [info.packetPointers(2 : end) - info.packetPointers(1 : end - 1) - 28; 0];

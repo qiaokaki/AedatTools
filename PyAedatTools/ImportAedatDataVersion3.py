@@ -2,13 +2,10 @@
 
 # Federico Corradi contributed the first version of this code
 """
+Import data from AEDAT version 3 format
 A subfunction of ImportAedat.py 
 Refer to this function for the definition of input/output variables etc
-Import data from AEDAT version 3 format
-Author sim.bamford@inilabs.com
-Based on file_CAER_viewer.py by federico corradi
 
-2016_05_24 WIP 
 Not handled yet:
 Timestamp overflow
 Reading by packets
@@ -25,33 +22,101 @@ Building large arrays,
 import struct
 import numpy as np                       
 
-def ImportAedatDataVersion3(info):
+def ImportAedatDataVersion3(aedat):
 
+    # Unpack the aedat dict
+    info = aedat['info']
+    importParams = aedat['importParams']
+    fileHandle = importParams['fileHandle']
+    
     # Check the startEvent and endEvent parameters
-    if not ('startPacket' in info) :
-        info['startPacket'] = 1
-    if not ('endPacket' in info) :
-        info['endPacket'] = np.inf
-    if info['startPacket'] > info['endPacket'] :
-        raise Exception('The startPacket parameter is %d, but the endPacket parameter is %d' % (info['startPacket'], info['endPacket']))
-    if 'startEvent' in info :
+    if ('startPacket' in importParams):
+        startPacket = importParams.startPacket
+    else:    
+        startPacket = 1
+
+    if ('endPacket' in importParams):
+        endPacket = importParams['endPacket']
+    else:
+        endPacket = np.inf
+        
+    if startPacket > endPacket:
+        raise Exception('The startPacket parameter is %d, but the endPacket parameter is %d' % (startPacket, endPacket))
+    
+    if 'startEvent' in importParams:
         raise Exception('The startEvent parameter is set, but range by events is not available for .aedat version 3.x files')
-    if 'endEvent' in info :
+    
+    if 'endEvent' in importParams:
         raise Exception('The endEvent parameter is set, but range by events is not available for .aedat version 3.x files')
-    if not ('startTime' in info) :
-        info['startTime'] = 0
-    if not ('endTime' in info) :
-        info['endTime'] = np.inf
-    if info['startTime'] > info['endTime'] :
+    
+    if ('startTime' in importParams):
+        startTime = inmportParams['startTime']
+    else:
+        startTime = 0
+    
+    if not ('endTime' in importParams):
+        endTime = importParams['endTime']
+    else:
+        endTime = np.inf
+    
+    if startTime > endTime:
         raise Exception('The startTime parameter is %d, but the endTime parameter is %d' % (info['startTime'], info['endTime']))
     
+    # By default, throw away timeStampFrameStart/End, 
+    # renaming timeStampExposureStart/End to timeStampStart/End
+    if ('simplifyFrameTimeStamps' in importParams):
+        simplifyFrameTimeStamps = importParams['simplifyFrameTimeStamps']
+    else:
+        simplifyFrameTimeStamps = true
+
+    # By default, throw away the valid flags, 
+    # and any events which are set as invalid.
+    if ('validOnly' in importParams):
+        validOnly = importParams['validOnly']
+    else:
+        validOnly = true
+
+    # By default, do not skip any packets
+    if ('modPacket' in importParams):
+        modPacket = importParams['modPacket']
+    else:
+        modPacket = 1
+    
+    # By default, import the full data, rather than just indexing the packets
+    if ('noData' in importParams): 
+        noData = importParams['noData']
+    else:
+        noData = false
+
+    # By default, import all data types
+    if ('dataTypes' in importParams):
+        allDataTypes = false
+        dataTypes = importParams['dataTypes']
+    else:
+        allDataTypes = true
+        
     packetCount = 0
 
-    packetTypes = []
-    packetPointers = []
+    # Has this file already been indexed in a previous pass?
+    if ('packetPointers' in info):
+        packetTypes = info['packetTypes']
+        packetPointers = info['packetPointers']
+        packetTimeStamps = info['packetTimeStamps']
+    elif endPacket < np.inf:
+        packetTypes = np.ones(endPacket, np.uint16)
+        packetPointers = np.zeros(endPacket, np.uint64)
+        packetTimeStamps = np.zeros(endPacket, np.uint64)
+    else:
+        packetTypes = ones(1000, np.uint16)
+        packetPointers = zeros(1000, np.uint64)
+        packetTimeStamps = zeros(1000, np.uint64)
+        
+        
+        REWRITE: GOT TO HERE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
     
-    #build with linked lists, then at the end convert to arrays
-    specialNumEvents = []
+    # Build arrays to receive data
+    specialNumEvents = 0
     specialValid     = []
     specialTimeStamp = []
     specialAddress   = []
