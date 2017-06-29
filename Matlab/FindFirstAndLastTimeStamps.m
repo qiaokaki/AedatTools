@@ -1,7 +1,7 @@
 function aedat = FindFirstAndLastTimeStamps(aedat)
 %{
 This is a sub-function of importAedat. 
-For eachj field in aedat.data, it finds the first and last timestamp. 
+For each field in aedat.data, it finds the first and last timestamp. 
 The min and max of these respectively are put into aedat.info
 %}
 
@@ -96,6 +96,22 @@ if isfield(aedat.data, 'point2D')
 	end
 	if aedat.data.point2D.timeStamp(end) > lastTimeStamp
 		lastTimeStamp = aedat.data.point2D.timeStamp(end);
+	end	
+end
+if isfield(aedat.data, 'point3D')
+	if aedat.data.point3D.timeStamp(1) < firstTimeStamp
+		firstTimeStamp = aedat.data.point3D.timeStamp(1);
+	end
+	if aedat.data.point3D.timeStamp(end) > lastTimeStamp
+		lastTimeStamp = aedat.data.point3D.timeStamp(end);
+	end	
+end
+if isfield(aedat.data, 'point4D')
+	if aedat.data.point4D.timeStamp(1) < firstTimeStamp
+		firstTimeStamp = aedat.data.point4D.timeStamp(1);
+	end
+	if aedat.data.point4D.timeStamp(end) > lastTimeStamp
+		lastTimeStamp = aedat.data.point4D.timeStamp(end);
 	end	
 end
 

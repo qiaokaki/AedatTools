@@ -387,13 +387,13 @@ elseif strfind(info.source, 'Davis')
 		numFrames = length(frameStarts) - 1;
 		
 		data.frame.reset = false(numFrames, 1);
-		data.frame.timeStampStart = zeros(numFrames, 1);
-		data.frame.timeStampEnd = zeros(numFrames, 1);
+		data.frame.timeStampStart = zeros(numFrames, 1, 'uint32');
+		data.frame.timeStampEnd = zeros(numFrames, 1, 'uint32');
 		data.frame.samples = cell(numFrames, 1);
-		data.frame.xLength = zeros(numFrames, 1);
-		data.frame.yLength = zeros(numFrames, 1);
-		data.frame.xPosition = zeros(numFrames, 1);
-		data.frame.yPosition = zeros(numFrames, 1);
+		data.frame.xLength = zeros(numFrames, 1, 'uint16');
+		data.frame.yLength = zeros(numFrames, 1, 'uint16');
+		data.frame.xPosition = zeros(numFrames, 1, 'uint16');
+		data.frame.yPosition = zeros(numFrames, 1, 'uint16');
 		
 		for frameIndex = 1 : numFrames
 			disp(['Processing frame ' num2str(frameIndex)])
