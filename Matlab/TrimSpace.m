@@ -25,7 +25,5 @@ if isfield(aedat, 'data') && isfield(aedat.data, 'polarity')
     aedat.data.polarity.numEvents = length(aedat.data.polarity.polarity);
 end
     
-% Recalculate first and last timestamps for good measure
-
-
+% Recalculate first and last timestamps
 aedat = FindFirstAndLastTimeStamps(aedat);
