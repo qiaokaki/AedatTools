@@ -46,18 +46,15 @@ if isfield(aedat.data, 'frame')
     aedat.data.frame.yPosition      = aedat.data.frame.yPosition     (keepLogical);
 end
 
-%% Imu6
+%% Point3D
 
-if isfield(aedat.data, 'imu6')
-    keepLogical = aedat.data.imu6.timeStamp >= startTime & aedat.data.imu6.timeStamp <= endTime;
-        aedat.data.imu6.timeStamp = aedat.data.imu6.timeStamp (keepLogical);
-    aedat.data.imu6.accelX       = aedat.data.imu6.accelX (keepLogical);
-    aedat.data.imu6.accelY       = aedat.data.imu6.accelY (keepLogical);
-    aedat.data.imu6.accelZ       = aedat.data.imu6.accelZ (keepLogical);
-    aedat.data.imu6.gyroX        = aedat.data.imu6.gyroX (keepLogical);
-    aedat.data.imu6.gyroY        = aedat.data.imu6.gyroY (keepLogical);
-    aedat.data.imu6.gyroZ        = aedat.data.imu6.gyroZ (keepLogical);
-    aedat.data.imu6.temperature  = aedat.data.imu6.temperature (keepLogical);
+if isfield(aedat.data, 'point3D')
+    keepLogical = aedat.data.point3D.timeStamp >= startTime ...
+                & aedat.data.point3D.timeStamp <= endTime;
+    aedat.data.point3D.timeStamp = aedat.data.point3D.timeStamp(keepLogical);
+    aedat.data.point3D.value1    = aedat.data.point3D.value1   (keepLogical);
+    aedat.data.point3D.value2    = aedat.data.point3D.value2   (keepLogical);
+    aedat.data.point3D.value3    = aedat.data.point3D.value3   (keepLogical);
 end
 
 % To do: handle other event types
