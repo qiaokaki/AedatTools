@@ -7,7 +7,7 @@ Code contributions from Bodo Rueckhauser
 """
 
 
-def ImportAedatBasicSourceName(inp):
+def BasicSourceName(inp):
     """
 
     Parameters

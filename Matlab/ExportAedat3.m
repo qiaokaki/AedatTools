@@ -48,7 +48,7 @@ fprintf(f,'#!END-HEADER\r\n');
 
 % Write header
 
-fwrite(f, 10, 'uint16', 0, 'l'); %eventType
+fwrite(f, 9, 'uint16', 0, 'l'); %eventType
 fwrite(f, 0, 'uint16', 0, 'l'); %eventSource
 fwrite(f, 16, 'uint32', 0, 'l'); %eventSize
 fwrite(f, 12, 'uint32', 0, 'l'); %eventTSOffset

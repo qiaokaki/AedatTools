@@ -15,21 +15,14 @@ Code contributions from Bodo Rueckhauser
 
 """
 
-from PyAedatTools.ImportAedatBasicSourceName import ImportAedatBasicSourceName 
+from PyAedatTools.BasicSourceName import BasicSourceName 
 
-def ImportAedatHeaders(info):
-    # Start from the beginning of the file (should not be necessary)
-    """
+def ImportAedatHeaders(aedat):
 
-    Parameters
-    ----------
-    info :
-
-    Returns
-    -------
-
-    """
-    info['fileHandle'].seek(0)
+    # Unpack the file handle
+    fileHandle = aedat['importParams']['fileHandle']
+    
+    fileHandle.seek(0)
 
     # From version 3.1 there is an unambiguous division between header and data:
     # A line like this: '#!END-HEADER\r\n'
@@ -37,6 +30,7 @@ def ImportAedatHeaders(info):
     # in the data would not be '#'. We ignore this - we look in the next 
     # unread position and if it is not # we exit. 
 
+    info = {};
     info['xml'] = {}
 
     # Assume the format version is 1 unless a header of the version number is
@@ -44,11 +38,11 @@ def ImportAedatHeaders(info):
     info['fileFormat'] = 1
 
     # Read the first character
-    is_comment = '#' in str(info['fileHandle'].read(1))
+    is_comment = '#' in str(fileHandle.read(1))
     while is_comment:
 
         # Read the rest of the line
-        line = info['fileHandle'].readline().decode('utf-8')
+        line = fileHandle.readline().decode('utf-8')
         # File format
         if line[: 8] == '!AER-DAT':
             info['fileFormat'] = int(line[8: -4])
@@ -62,7 +56,7 @@ def ImportAedatHeaders(info):
                 start_prefix = line.rfind('.')
             except:
                 start_prefix = 9    
-            info['sourceFromFile'] = ImportAedatBasicSourceName(
+            info['sourceFromFile'] = BasicSourceName(
                 line[start_prefix:])
         # Version 3.0 encodes it like this
         # The following ignores any trace of previous sources
@@ -129,14 +123,14 @@ def ImportAedatHeaders(info):
         """
         # Read ahead the first character of the next line to complete the
         # while loop
-        is_comment = '#' in str(info['fileHandle'].read(1))
+        is_comment = '#' in str(fileHandle.read(1))
 
     # We have read ahead one byte looking for '#', and not found it.
     # Now wind back one to be in the right place to start reading
-    info['fileHandle'].seek(-1, 1)
-    info['beginningOfDataPointer'] = info['fileHandle'].tell()
+    fileHandle.seek(-1, 1)
+    info['beginningOfDataPointer'] = fileHandle.tell()
 
-    """
+    
     # If a device is specified in input, does it match the derived source?
     if isfield(info, 'source')
         info.source = importAedat_basicSourceName(info.source);
@@ -158,5 +152,10 @@ def ImportAedatHeaders(info):
     end
         
     """
+% Get the address space (dimensions) of the device
+% For vision sensors, this is a tuple [X Y]
+info.deviceAddressSpace = DeviceAddressSpace(info.source);
+    
+    aedat['info'] = info
 
-    return info
+    return aedat
