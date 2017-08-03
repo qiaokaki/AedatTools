@@ -132,30 +132,29 @@ def ImportAedatHeaders(aedat):
 
     
     # If a device is specified in input, does it match the derived source?
-    if isfield(info, 'source')
-        info.source = importAedat_basicSourceName(info.source);
-        if isfield(info, 'sourceFromFile') && ~strcmp(info.source,
-         info.sourceFromFile)
-            fprintf('The source given as input, "#s", doesn''t match the source
-            declared in the file, "#s"; assuming the source given as input.\n',
-             inputSource, info.Source);
-        end
-    elseif ~isfield(info, 'sourceFromFile')
+    if 'source' in info:
+        info['source'] = BasicSourceName(info['source'])
+        if 'sourceFromFile' in info and info['source'] == info['sourceFromFile']:
+#            fprintf('The source given as input, "#s", doesn''t match the source \
+#            declared in the file, "#s"; assuming the source given as input.\n',
+#             inputSource, info.Source)
+            pass
+    elif not 'sourceFromFile' in info:
     # If no source was detected, assume it was from a DVS128	
-    info.source = 'Dvs128';
-    else
-        info.source = info.sourceFromFile;
-    end
-    if isfield(info, 'sourceFromFile') 
-        # Clean up
-        rmfield(info, 'sourceFromFile');
-    end
+        info['source'] = 'Dvs128'
+    else:
+        info['source'] = info['sourceFromFile']
+    # Clean up
+    try:
+        del info['sourceFromFile']
+    except KeyError:
+        pass
         
     """
-% Get the address space (dimensions) of the device
-% For vision sensors, this is a tuple [X Y]
-info.deviceAddressSpace = DeviceAddressSpace(info.source);
-    
+    % Get the address space (dimensions) of the device
+    % For vision sensors, this is a tuple [X Y]
+    info.deviceAddressSpace = DeviceAddressSpace(info.source);
+    """    
     aedat['info'] = info
 
     return aedat

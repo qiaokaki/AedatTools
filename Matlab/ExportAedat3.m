@@ -59,17 +59,13 @@ fwrite(f, aedat.data.point2D.numEvents, 'uint32', 0, 'l'); %eventCapacity
 
 % Write data
 
-% Efficiency out of the window when the deadline troll comes to town. 
-% Someone, anyone, who cares about truth, beauty and the sanctity of code, 
-% please rewrite this. 
-
 valid = uint32(1);
 scale = uint32(2^8);
 validPlusScale = valid + scale;
 infoField = uint32(aedat.data.point2D.type * 2) ...
               + validPlusScale;
 for eventIdx = 1 : aedat.data.point2D.numEvents
-    fwrite(f, infoField(eventIdx), 'single', 0, 'l');
+    fwrite(f, infoField(eventIdx), 'uint32', 0, 'l');
     fwrite(f, aedat.data.point2D.value1(eventIdx), 'single', 0, 'l');
     fwrite(f, aedat.data.point2D.value2(eventIdx), 'single', 0, 'l');
     fwrite(f, aedat.data.point2D.timeStamp(eventIdx), 'uint32', 0, 'l');
