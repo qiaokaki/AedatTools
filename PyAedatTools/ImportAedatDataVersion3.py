@@ -24,6 +24,8 @@ Building large arrays,
 import struct
 import math
 import numpy as np                       
+from PyAedatTools.FindFirstAndLastTimeStamps import FindFirstAndLastTimeStamps
+from PyAedatTools.NumEventsByType import NumEventsByType
 
 def ImportAedatDataVersion3(aedat):
 
@@ -509,7 +511,7 @@ def ImportAedatDataVersion3(aedat):
                         point1DNumEvents = point1DNumEvents + eventNumber
 
                 # Point2D
-                elif eventType == 10: # Should be 9 - TEMPORARY HACK 
+                elif eventType == 9:
 
                     if allDataTypes or 'point2D' in info['dataTypes']:
                         # First check if the array is big enough
@@ -691,12 +693,12 @@ def ImportAedatDataVersion3(aedat):
     # Add NumEvents field for each data type
     
     if not noData:
-        pass # LATER aedat = NumEventsByType(aedat);
+        aedat = NumEventsByType(aedat)
     
     # Find first and last time stamps      
     
     if not noData:
-        pass # LATER aedat = FindFirstAndLastTimeStamps(aedat);
+        aedat = FindFirstAndLastTimeStamps(aedat)
 
     return aedat
 

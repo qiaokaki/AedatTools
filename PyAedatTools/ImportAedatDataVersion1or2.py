@@ -7,12 +7,18 @@ Import aedat version 1 or 2.
 """
 
 import numpy as np
+from PyAedatTools.FindFirstAndLastTimeStamps import FindFirstAndLastTimeStamps
+from PyAedatTools.NumEventsByType import NumEventsByType
 
-
-def ImportAedatDataVersion1or2(info):
+def ImportAedatDataVersion1or2(aedat):
     """
     Later ;)
     """
+
+    # unpack    
+    info = aedat['info']
+    importParams = aedat['importParams']
+    fileHandle = importParams['fileHandle']
 
     # The formatVersion dictates whether there are 6 or 8 bytes per event.
     if info['fileFormat'] == 1:
@@ -22,41 +28,38 @@ def ImportAedatDataVersion1or2(info):
         numBytesPerEvent = 8
         addrPrecision = np.dtype([('addr', '>u4'), ('ts', '>u4')])
 
-    fileHandle = info['fileHandle']
-
     # Find the number of events, assuming that the file position is just at the
     # end of the headers.
     fileHandle.seek(0, 2)
-    numEventsInFile = int(np.floor(
+    info['numEventsInFile'] = int(np.floor(
         (fileHandle.tell() - info['beginningOfDataPointer']) /
         numBytesPerEvent))
-    info['numEventsInFile'] = numEventsInFile
 
     # Check the startEvent and endEvent parameters
-    if 'startEvent' not in info:
-        info['startEvent'] = 0
-    assert info['startEvent'] <= numEventsInFile
-    if 'endEvent' not in info:
-        info['endEvent'] = numEventsInFile
-    if 'startPacket' in info:
+    if 'startEvent' in importParams:
+        startEvent = importParams['startEvent']
+    else:
+        startEvent = 0
+    assert startEvent <= info['numEventsInFile']
+    if 'endEvent' in importParams:
+        endEvent = importParams['endEvent']
+    else:
+        endEvent = info['numEventsInFile']
+    assert endEvent <= info['numEventsInFile']    
+    if 'startPacket' in importParams:
         print("The startPacket parameter is set, but range by packets is not "
               "available for .aedat version < 3 files")
-    if 'endPacket' in info:
+    if 'endPacket' in importParams:
         print("The endPacket parameter is set, but range by events is not "
               "available for .aedat version < 3 files")
-    if info['endEvent'] > numEventsInFile:
-        print("The file contains {}  the endEvent parameter is {}  reducing "
-              "the endEvent parameter accordingly.".format(numEventsInFile,
-                                                           info['endEvents']))
-        info['endEvent'] = numEventsInFile
-    assert info['startEvent'] <= info['endEvent']
+    assert startEvent <= endEvent
 
-    numEventsToRead = int(info['endEvent'] - info['startEvent'] + 1)
+    numEventsToRead = endEvent - startEvent + 1
 
     # Read events
     print 'Reading events ...'
     fileHandle.seek(info['beginningOfDataPointer'] + numBytesPerEvent *
-                     info['startEvent'])
+                     startEvent)
     allEvents = np.fromfile(fileHandle, addrPrecision, numEventsToRead)
 
     allAddr = np.array(allEvents['addr'])
@@ -66,15 +69,15 @@ def ImportAedatDataVersion1or2(info):
     # This is an inefficent implementation, which allows for non-monotonic
     # timestamps.
 
-    if 'startTime' in info:
+    if 'startTime' in importParams:
         print 'Cropping events by time ...'
-        tempIndex = np.nonzero(allTs >= info['startTime'] * 1e6)
+        tempIndex = np.nonzero(allTs >= importParams['startTime'] * 1e6)
         allAddr = allAddr[tempIndex]
         allTs = allTs[tempIndex]
 
-    if 'endTime' in info:
+    if 'endTime' in importParams:
         print 'Cropping events by time ...'
-        tempIndex = np.nonzero(allTs <= info['endTime'] * 1e6)
+        tempIndex = np.nonzero(allTs <= importParams['endTime'] * 1e6)
         allAddr = allAddr[tempIndex]
         allTs = allTs[tempIndex]
 
@@ -109,7 +112,7 @@ def ImportAedatDataVersion1or2(info):
     """
 
     # Create a structure to put all the data in 
-    output = {'data': {}}
+    outputData = {}
 
     if info['source'] == 'Das1':
 
@@ -149,33 +152,33 @@ def ImportAedatDataVersion1or2(info):
         specialLogical = np.logical_and(signalOrSpecialLogical,
                                        np.logical_not(apsOrImuLogical))
     # Special events
-        if ('dataTypes' not in info or 'special' in info['dataTypes']) \
+        if ('dataTypes' not in importParams or 'special' in importParams['dataTypes']) \
                  and any(specialLogical):
             print 'Processing special events ...'
-            output['data']['special'] = {}
-            output['data']['special']['timeStamp'] = allTs[specialLogical] 
+            outputData['special'] = {}
+            outputData['special']['timeStamp'] = allTs[specialLogical] 
             # No need to create address field, since there is only one type of special event
         del specialLogical
     
         polarityLogical = np.logical_and(np.logical_not(apsOrImuLogical),
                                       np.logical_not(signalOrSpecialLogical))
         # Polarity(DVS) events
-        if ('dataTypes' not in info or 'polarity' in info['dataTypes']) \
+        if ('dataTypes' not in importParams or 'polarity' in importParams['dataTypes']) \
                 and any(polarityLogical):
             print 'Processing polarity events ...'
             polarityData = allAddr[polarityLogical]         
-            output['data']['polarity'] = {}
-            output['data']['polarity']['timeStamp'] = allTs[polarityLogical]
+            outputData['polarity'] = {}
+            outputData['polarity']['timeStamp'] = allTs[polarityLogical]
             # Y addresses
-            output['data']['polarity']['y'] = np.array(np.right_shift( \
+            outputData['polarity']['y'] = np.array(np.right_shift( \
                 np.bitwise_and(polarityData, yMask), yShiftBits), 'uint16')
             # X addresses
-            output['data']['polarity']['x'] = np.array(np.right_shift( \
+            outputData['polarity']['x'] = np.array(np.right_shift( \
                 np.bitwise_and(polarityData, xMask), xShiftBits), 'uint16')
             # Polarity bit
             
             # Note: no need for a bitshift here, since its converted to boolean anyway
-            output['data']['polarity']['polarity'] = np.array( \
+            outputData['polarity']['polarity'] = np.array( \
             np.bitwise_and(polarityData, polarityMask), 'bool')
             del polarityData
         del polarityLogical
@@ -187,7 +190,7 @@ def ImportAedatDataVersion1or2(info):
         frameLogical = np.logical_and(apsOrImuLogical,
                                      np.logical_not(ImuOrPolarityLogical))
        # Frame events
-        if ('dataTypes' not in info or 'frame' in info['dataTypes']) \
+        if ('dataTypes' not in importParams or 'frame' in importParams['dataTypes']) \
                 and any(frameLogical):
             print 'Processing frames ...'
             frameSampleMask = int('1111111111', 2) 
@@ -213,15 +216,15 @@ def ImportAedatDataVersion1or2(info):
              # Now we have the indices of the first sample in each frame, plus
              # an additional index just beyond the end of the array
             numFrames = frameStarts.size - 1 
-            output['data']['frame'] = {}
-            output['data']['frame']['reset']            = np.zeros(numFrames, 'bool') 
-            output['data']['frame']['timeStampStart']   = np.zeros(numFrames, 'uint32') 
-            output['data']['frame']['timeStampEnd']     = np.zeros(numFrames, 'uint32')
-            output['data']['frame']['samples']          = np.empty(numFrames, 'object') 
-            output['data']['frame']['xLength']          = np.zeros(numFrames, 'uint16') 
-            output['data']['frame']['yLength']          = np.zeros(numFrames, 'uint16') 
-            output['data']['frame']['xPosition']        = np.zeros(numFrames, 'uint16') 
-            output['data']['frame']['yPosition']        = np.zeros(numFrames, 'uint16') 
+            outputData['frame'] = {}
+            outputData['frame']['reset']            = np.zeros(numFrames, 'bool') 
+            outputData['frame']['timeStampStart']   = np.zeros(numFrames, 'uint32') 
+            outputData['frame']['timeStampEnd']     = np.zeros(numFrames, 'uint32')
+            outputData['frame']['samples']          = np.empty(numFrames, 'object') 
+            outputData['frame']['xLength']          = np.zeros(numFrames, 'uint16') 
+            outputData['frame']['yLength']          = np.zeros(numFrames, 'uint16') 
+            outputData['frame']['xPosition']        = np.zeros(numFrames, 'uint16') 
+            outputData['frame']['yPosition']        = np.zeros(numFrames, 'uint16') 
             
             for frameIndex in range(0, numFrames) :
                 if frameIndex % 10 == 9:
@@ -229,27 +232,27 @@ def ImportAedatDataVersion1or2(info):
                 # All within a frame should be either reset or signal. I could
                 # implement a check here to see that that's true, but I haven't
                 # done so; rather I just take the first value
-                output['data']['frame']['reset'][frameIndex] \
+                outputData['frame']['reset'][frameIndex] \
                     = not frameSignal[frameStarts[frameIndex]]  
                 
                  # in aedat 2 format we don't have the four timestamps of aedat 3 format
                  # We expect to find all the same timestamps  
                  # nevertheless search for lowest and highest
-                output['data']['frame']['timeStampStart'][frameIndex] \
+                outputData['frame']['timeStampStart'][frameIndex] \
                     = min(frameTs[frameStarts[frameIndex] : frameStarts[frameIndex + 1]])  
-                output['data']['frame']['timeStampEnd'][frameIndex] \
+                outputData['frame']['timeStampEnd'][frameIndex] \
                     = max(frameTs[frameStarts[frameIndex] : frameStarts[frameIndex + 1]])  
     
                 tempXPosition = min(frameX[frameStarts[frameIndex] : frameStarts[frameIndex + 1]]) 
-                output['data']['frame']['xPosition'][frameIndex] = tempXPosition 
+                outputData['frame']['xPosition'][frameIndex] = tempXPosition 
                 tempYPosition = min(frameY[frameStarts[frameIndex] : frameStarts[frameIndex + 1]]) 
-                output['data']['frame']['yPosition'][frameIndex] = tempYPosition 
-                output['data']['frame']['xLength'][frameIndex] \
+                outputData['frame']['yPosition'][frameIndex] = tempYPosition 
+                outputData['frame']['xLength'][frameIndex] \
                     = max(frameX[frameStarts[frameIndex] : frameStarts[frameIndex + 1]]) \
-                        - output['data']['frame']['xPosition'][frameIndex] + 1 
-                output['data']['frame']['yLength'][frameIndex] \
+                        - outputData['frame']['xPosition'][frameIndex] + 1 
+                outputData['frame']['yLength'][frameIndex] \
                     = max(frameY[frameStarts[frameIndex] : frameStarts[frameIndex + 1]]) \
-                        - output['data']['frame']['yPosition'][frameIndex] + 1 
+                        - outputData['frame']['yPosition'][frameIndex] + 1 
                 # If we worked out which way the data is ramping in each
                 # direction, and if we could exclude data loss, then we could
                 # do some nice clean matrix transformations  but I'm just going
@@ -258,83 +261,83 @@ def ImportAedatDataVersion1or2(info):
                 
                  # first create a temporary array - there is no concept of
                  # colour channels in aedat2
-                tempSamples = np.zeros((output['data']['frame']['yLength'][frameIndex], \
-                                    output['data']['frame']['xLength'][frameIndex]), dtype='uint16') 
+                tempSamples = np.zeros((outputData['frame']['yLength'][frameIndex], \
+                                    outputData['frame']['xLength'][frameIndex]), dtype='uint16') 
                 for sampleIndex in range(frameStarts[frameIndex], frameStarts[frameIndex + 1]):
                     tempSamples[frameY[sampleIndex] \
-                                    - output['data']['frame']['yPosition'][frameIndex], \
+                                    - outputData['frame']['yPosition'][frameIndex], \
                                 frameX[sampleIndex] \
-                                    - output['data']['frame']['xPosition'][frameIndex]] \
+                                    - outputData['frame']['xPosition'][frameIndex]] \
                         = frameSample[sampleIndex] 
 
-                output['data']['frame']['samples'][frameIndex] = tempSamples 
+                outputData['frame']['samples'][frameIndex] = tempSamples 
     
-            if 'subtractResetRead' in info and info['subtractResetRead'] \
-                    and 'reset' in output['data']['frame']:
+            if (not ('subtractResetRead' in importParams) or importParams['subtractResetRead']) \
+                    and 'reset' in outputData['frame']:
                 # Make a second pass through the frames, subtracting reset
                 # reads from signal reads
                 frameCount = 0
                 for frameIndex in range(0, numFrames):
                     if frameIndex % 10 == 9:
                         print 'Performing subtraction on frame ', frameIndex + 1, ' of ', numFrames
-                    if output['data']['frame']['reset'][frameIndex]: 
-                        resetFrame = output['data']['frame']['samples'][frameIndex] 
-                        resetXPosition = output['data']['frame']['xPosition'][frameIndex] 
-                        resetYPosition = output['data']['frame']['yPosition'][frameIndex] 
-                        resetXLength = output['data']['frame']['xLength'][frameIndex] 
-                        resetYLength = output['data']['frame']['yLength'][frameIndex]                     
+                    if outputData['frame']['reset'][frameIndex]: 
+                        resetFrame = outputData['frame']['samples'][frameIndex] 
+                        resetXPosition = outputData['frame']['xPosition'][frameIndex] 
+                        resetYPosition = outputData['frame']['yPosition'][frameIndex] 
+                        resetXLength = outputData['frame']['xLength'][frameIndex] 
+                        resetYLength = outputData['frame']['yLength'][frameIndex]                     
                     else: 
                          # If a resetFrame has not yet been found, 
                          # push through the signal frame as is
                         if not 'resetFrame' in locals():
-                            output['data']['frame']['samples'][frameCount] \
-                                = output['data']['frame']['samples'][frameIndex] 
+                            outputData['frame']['samples'][frameCount] \
+                                = outputData['frame']['samples'][frameIndex] 
                         else:
                              # If the resetFrame and signalFrame are not the same size,    
                              # don't attempt subtraction 
                              # (there is probably a cleaner solution than this - could be improved)
-                            if resetXPosition != output['data']['frame']['xPosition'][frameIndex] \
-                                or resetYPosition != output['data']['frame']['yPosition'][frameIndex] \
-                                or resetXLength != output['data']['frame']['xLength'][frameIndex] \
-                                or resetYLength != output['data']['frame']['yLength'][frameIndex]:
-                                output['data']['frame']['samples'][frameCount] \
-                                    = output['data']['frame']['samples'][frameIndex] 
+                            if resetXPosition != outputData['frame']['xPosition'][frameIndex] \
+                                or resetYPosition != outputData['frame']['yPosition'][frameIndex] \
+                                or resetXLength != outputData['frame']['xLength'][frameIndex] \
+                                or resetYLength != outputData['frame']['yLength'][frameIndex]:
+                                outputData['frame']['samples'][frameCount] \
+                                    = outputData['frame']['samples'][frameIndex] 
                             else:
                                  # Do the subtraction
-                                output['data']['frame']['samples'][frameCount] \
-                                    = resetFrame - output['data']['frame']['samples'][frameIndex] 
+                                outputData['frame']['samples'][frameCount] \
+                                    = resetFrame - outputData['frame']['samples'][frameIndex] 
                                 # This operation was on unsigned integers, set negatives to zero
-                                output['data']['frame']['samples'][frameCount][output['data']['frame']['samples'][frameCount] > 32767] = 0
+                                outputData['frame']['samples'][frameCount][outputData['frame']['samples'][frameCount] > 32767] = 0
                              # Copy over the reset of the info
-                            output['data']['frame']['xPosition'][frameCount] \
-                                = output['data']['frame']['xPosition'][frameIndex] 
-                            output['data']['frame']['yPosition'][frameCount] \
-                                = output['data']['frame']['yPosition'][frameIndex] 
-                            output['data']['frame']['xLength'][frameCount] \
-                                = output['data']['frame']['xLength'][frameIndex] 
-                            output['data']['frame']['yLength'][frameCount] \
-                                = output['data']['frame']['yLength'][frameIndex] 
-                            output['data']['frame']['timeStampStart'][frameCount] \
-                                = output['data']['frame']['timeStampStart'][frameIndex]  
-                            output['data']['frame']['timeStampEnd'][frameCount] \
-                                = output['data']['frame']['timeStampEnd'][frameIndex]                              
+                            outputData['frame']['xPosition'][frameCount] \
+                                = outputData['frame']['xPosition'][frameIndex] 
+                            outputData['frame']['yPosition'][frameCount] \
+                                = outputData['frame']['yPosition'][frameIndex] 
+                            outputData['frame']['xLength'][frameCount] \
+                                = outputData['frame']['xLength'][frameIndex] 
+                            outputData['frame']['yLength'][frameCount] \
+                                = outputData['frame']['yLength'][frameIndex] 
+                            outputData['frame']['timeStampStart'][frameCount] \
+                                = outputData['frame']['timeStampStart'][frameIndex]  
+                            outputData['frame']['timeStampEnd'][frameCount] \
+                                = outputData['frame']['timeStampEnd'][frameIndex]                              
                             frameCount = frameCount + 1
                  # Clip the arrays
-                output['data']['frame']['xPosition'] \
-                    = output['data']['frame']['xPosition'][0 : frameCount] 
-                output['data']['frame']['yPosition'] \
-                    = output['data']['frame']['yPosition'][0 : frameCount] 
-                output['data']['frame']['xLength'] \
-                    = output['data']['frame']['xLength'][0 : frameCount] 
-                output['data']['frame']['yLength'] \
-                    = output['data']['frame']['yLength'][0 : frameCount] 
-                output['data']['frame']['timeStampStart'] \
-                    = output['data']['frame']['timeStampStart'][0 : frameCount] 
-                output['data']['frame']['timeStampEnd'] \
-                    = output['data']['frame']['timeStampEnd'][0 : frameCount] 
-                output['data']['frame']['samples'] \
-                    = output['data']['frame']['samples'][0 : frameCount]
-                del output['data']['frame']['reset']   # reset is no longer needed
+                outputData['frame']['xPosition'] \
+                    = outputData['frame']['xPosition'][0 : frameCount] 
+                outputData['frame']['yPosition'] \
+                    = outputData['frame']['yPosition'][0 : frameCount] 
+                outputData['frame']['xLength'] \
+                    = outputData['frame']['xLength'][0 : frameCount] 
+                outputData['frame']['yLength'] \
+                    = outputData['frame']['yLength'][0 : frameCount] 
+                outputData['frame']['timeStampStart'] \
+                    = outputData['frame']['timeStampStart'][0 : frameCount] 
+                outputData['frame']['timeStampEnd'] \
+                    = outputData['frame']['timeStampEnd'][0 : frameCount] 
+                outputData['frame']['samples'] \
+                    = outputData['frame']['samples'][0 : frameCount]
+                del outputData['frame']['reset']   # reset is no longer needed
         del frameLogical
     
     
@@ -344,18 +347,18 @@ def ImportAedatDataVersion1or2(info):
         # 7 words are sent in series, these being 3 axes for accel, temperature, and 3 axes for gyro
 
         imuLogical = np.logical_and(apsOrImuLogical, ImuOrPolarityLogical)
-        if ('dataTypes' not in info or 'imu6' in info['dataTypes']) \
+        if ('dataTypes' not in importParams or 'imu6' in importParams['dataTypes']) \
                 and any(imuLogical):
             print 'Processing IMU6 events ...'
-            output['data']['imu6'] = {}
-            output['data']['imu6']['timeStamp'] = allTs[imuLogical]
+            outputData['imu6'] = {}
+            outputData['imu6']['timeStamp'] = allTs[imuLogical]
 
             if np.mod(np.count_nonzero(imuLogical), 7) > 0: 
                 print 'The number of IMU samples is not divisible by 7, so IMU samples are not interpretable'
             else:
-                output['data']['imu6']['timeStamp'] = allTs[imuLogical]
-                output['data']['imu6']['timeStamp'] \
-                    = output['data']['imu6']['timeStamp'][0 : : 7]
+                outputData['imu6']['timeStamp'] = allTs[imuLogical]
+                outputData['imu6']['timeStamp'] \
+                    = outputData['imu6']['timeStamp'][0 : : 7]
     
             # Conversion factors
             # Actually these scales depend on the fiull scale value 
@@ -374,61 +377,29 @@ def ImportAedatDataVersion1or2(info):
             rawData = rawData.astype('int16')
             rawData = rawData.astype('float32')
                         
-            output['data']['imu6']['accelX']        = rawData[0 : : 7] * accelScale    
-            output['data']['imu6']['accelY']        = rawData[1 : : 7] * accelScale    
-            output['data']['imu6']['accelZ']        = rawData[2 : : 7] * accelScale    
-            output['data']['imu6']['temperature']   = rawData[3 : : 7] * temperatureScale + temperatureOffset   
-            output['data']['imu6']['gyroX']         = rawData[4 : : 7] * gyroScale  
-            output['data']['imu6']['gyroY']         = rawData[5 : : 7] * gyroScale
-            output['data']['imu6']['gyroZ']         = rawData[6 : : 7] * gyroScale
+            outputData['imu6']['accelX']        = rawData[0 : : 7] * accelScale    
+            outputData['imu6']['accelY']        = rawData[1 : : 7] * accelScale    
+            outputData['imu6']['accelZ']        = rawData[2 : : 7] * accelScale    
+            outputData['imu6']['temperature']   = rawData[3 : : 7] * temperatureScale + temperatureOffset   
+            outputData['imu6']['gyroX']         = rawData[4 : : 7] * gyroScale  
+            outputData['imu6']['gyroY']         = rawData[5 : : 7] * gyroScale
+            outputData['imu6']['gyroZ']         = rawData[6 : : 7] * gyroScale
         del imuLogical
 
     # If you want to do chip-specific address shifts or subtractions,
     # this would be the place to do it.
 
-    print 'Augmenting info ...'
-    output['info'] = info
-
     # calculate numEvents fields  also find first and last timeStamps
-    output['info']['firstTimeStamp'] = np.infty
-    output['info']['lastTimeStamp'] = 0
+    info['firstTimeStamp'] = np.infty
+    info['lastTimeStamp'] = 0
 
-    if 'polarity' in output['data']:
-        output['data']['polarity']['numEvents'] = \
-            len(output['data']['polarity']['timeStamp'])
-        if output['data']['polarity']['timeStamp'][0] < \
-                output['info']['firstTimeStamp']:
-            output['info']['firstTimeStamp'] = \
-                output['data']['polarity']['timeStamp'][0]
-        if output['data']['polarity']['timeStamp'][-1] > \
-                output['info']['lastTimeStamp']:
-            output['info']['lastTimeStamp'] = \
-                output['data']['polarity']['timeStamp'][-1]
+    aedat['info'] = info
+    aedat['data'] = outputData
 
-    if 'frame' in output['data']:
-        output['data']['frame']['numEvents'] = \
-            len(output['data']['frame']['timeStampStart'])
-        if output['data']['frame']['timeStampStart'][0] < \
-                output['info']['firstTimeStamp']:
-            output['info']['firstTimeStamp'] = \
-                output['data']['frame']['timeStampStart'][0]
-        if output['data']['frame']['timeStampEnd'][-1] > \
-                output['info']['lastTimeStamp']:
-            output['info']['lastTimeStamp'] = \
-                output['data']['frame']['timeStampEnd'][-1]
-
-    if 'imu6' in output['data']:
-        output['data']['imu6']['numEvents'] = \
-            len(output['data']['imu6']['timeStamp'])
-        if output['data']['imu6']['timeStamp'][0] < \
-                output['info']['firstTimeStamp']:
-            output['info']['firstTimeStamp'] = \
-                output['data']['imu6']['timeStamp'][0]
-        if output['data']['imu6']['timeStamp'][-1] > \
-                output['info']['lastTimeStamp']:
-            output['info']['lastTimeStamp'] = \
-                output['data']['imu6']['timeStamp'][-1]
-
-
-
-    return output
+    # Find first and last time stamps        
+    aedat = FindFirstAndLastTimeStamps(aedat);
+    
+    # Add NumEvents field for each data type
+    aedat = NumEventsByType(aedat);
+    '''    
+    return aedat

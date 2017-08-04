@@ -19,10 +19,10 @@ from geometry_msgs.msg import Vector3
 from cv_bridge import CvBridge #, CvBridgeError
 import rospy
 
-def ExportToRosbag(aedat):
+def ExportRosbag(aedat):
     
     # bag file name and path will be the same as origin .aedat file, unless overruled
-    bagFilePath = os.path.splitext(aedat['info']['filePath'])[0] + '.bag'
+    bagFilePath = os.path.splitext(aedat['exportParams']['filePath'])[0] + '.bag'
     
     # Open bag
     bag = rosbag.Bag(bagFilePath, 'w')
