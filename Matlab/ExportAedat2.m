@@ -35,14 +35,21 @@ else
     source = aedat.info.source;
 end
 
-%% Create overall containers 
+%% General preparation
 
+% Create overall containers 
 allTimeStamps = uint32([]);
 allSamples = uint32([]);
 
+% Declare function for finding specific event types in eventTypes cell array
+cellFind = @(string)(@(cellContents)(strcmp(string, cellContents)));
+
 %% Polarity
 
-if isfield(aedat.data, 'polarity')
+if isfield(aedat.data, 'polarity') ...
+        && (~isfield(aedat.exportParams, 'dataTypes') ...
+            || any(cellfun(cellFind('polarity'), aedat.exportParams.dataTypes)))
+        
 
     disp('Preparing polarity data ...')
 
@@ -76,7 +83,9 @@ end
 
 %% Frame
 
-if isfield(aedat.data, 'frame')
+if isfield(aedat.data, 'frame') ...
+        && (~isfield(aedat.exportParams, 'dataTypes') ...
+            || any(cellfun(cellFind('frame'), aedat.exportParams.dataTypes)))
     disp('Preparing frame data ...')
     yShiftBits = 22;
     xShiftBits = 12;
@@ -133,7 +142,9 @@ end
 %% IMU6
 
 
-if isfield(aedat.data, 'imu6')
+if isfield(aedat.data, 'imu6') ...
+        && (~isfield(aedat.exportParams, 'dataTypes') ...
+            || any(cellfun(cellFind('imu6'), aedat.exportParams.dataTypes)))
     disp('Preparing imu6 data ...')
 
     imuFlag = 2 ^ 31 + 2 ^ 11 + 2 ^ 10;
@@ -239,16 +250,19 @@ disp('Writing to file ...')
 % Create the file
 f = fopen(aedat.exportParams.filePath, 'w', 'b');
 
-% CRLF \r\n is needed to not break header parsing in jAER
-fprintf(f,'#!AER-DAT2.0\r\n');
-fprintf(f,'# This is a raw AE data file created by an export function in the AedatTools library\r\n');
-fprintf(f,'# Data format is int32 address, int32 timestamp (8 bytes total), repeated for each event\r\n');
-fprintf(f,'# Timestamps tick is 1 us\r\n');
-fprintf(f,['# AEChip: ' source '\r\n']);
-fprintf(f,'# End of ASCII Header\r\n');
+if ~isfield(aedat.exportParams, 'noHeader') || aedat.exportParams.noHeader == false
+
+    % CRLF \r\n is needed to not break header parsing in jAER
+    fprintf(f,'#!AER-DAT2.0\r\n');
+    fprintf(f,'# This is a raw AE data file created by an export function in the AedatTools library\r\n');
+    fprintf(f,'# Data format is int32 address, int32 timestamp (8 bytes total), repeated for each event\r\n');
+    fprintf(f,'# Timestamps tick is 1 us\r\n');
+    fprintf(f,['# AEChip: ' source '\r\n']);
+    fprintf(f,'# End of ASCII Header\r\n');
+end
 
 % write addresses and timestamps
-count=fwrite(f, output, 'uint32', 0, 'b')/2; % write 4 byte data
+count = fwrite(f, output, 'uint32', 0, 'b') / 2; % write 4 byte data
 fclose(f);
 fprintf('wrote %d events to %s\n', count, aedat.exportParams.filePath);
 
