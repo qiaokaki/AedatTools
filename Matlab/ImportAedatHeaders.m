@@ -183,10 +183,10 @@ while line(1)=='#'
 	% Gets the next line, including line ending chars
     line = native2unicode(fgets(fileHandle)); 
 end
-	
+
 % If a device is specified in input, does it match the derived source?
 if isfield(importParams, 'source')
-	sourceFromImportParams = BasicSourceName(importParams);
+	sourceFromImportParams = BasicSourceName(importParams.source);
 	if exist('sourceFromFile', 'var') && ~strcmp(sourceFromImportParams, sourceFromFile)
         fprintf('The source given as input, "%s", doesn''t match the source declared in the file, "%s"; assuming the source given as input.\n', sourceFromImportParams, info.sourceFromFile);
 	end
@@ -196,6 +196,12 @@ elseif exist('sourceFromFile', 'var')
 else
 	% If no source was detected, assume it was from a DVS128	
 	info.source = 'Dvs128';
+end
+
+if strcmp(info.source, 'SecDvs')
+    % The secdvs bin to aedat encoder adds an extra 5 newline (0x0A) characters
+    % at this point (I don't know why). Strip them off.
+    info.beginningOfDataPointer = info.beginningOfDataPointer + 5; 
 end
 
 % Get the address space (dimensions) of the device

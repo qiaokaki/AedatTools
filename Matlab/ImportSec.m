@@ -11,19 +11,23 @@ folder path and takes the most recent file in the folder.
 
 dbstop if error
 
+% Unpack parameters
 importParams = aedat.importParams;
 
-% Open the file
-if ~strcmp(importParams.filePath(end -3 : end), '.bin') 
-% TO DO
+%% Open the file
+
+if ~isfield(importParams, 'filePath') || ~strcmp(importParams.filePath(end -3 : end), '.bin') 
     % Open the newest file
-    directoryListing = dir('*.mat');
-    [~, dx] = sort([directoryListing.datenum]);
-    lf = d(dx==1).name;
-	aedat.importParams.filePath = [path fileName];
+    % Note: For this to work at the moment, matlab must already be in the
+    % correct directory
+    directoryListing = dir('*.bin');
+    [~, fileIndex] = sort([directoryListing.datenum]);
+    filePath = directoryListing(fileIndex(end)).name;
+else
+    filePath = importParams.filePath;
 end
 
-fileHandle = fopen(importParams.filePath, 'r');
+fileHandle = fopen(filePath, 'r');
 
 if fileHandle == -1
     error('file not found')
@@ -32,8 +36,10 @@ end
 % Go to the EOF to find out how long it is
 fseek(fileHandle, 0, 'eof');
 
-% Find the number of packets. 
+% Find the number of packets
 numPacketsInFile = ftell(fileHandle) / 4;
+
+%% Check parameters
 
 % Check the startEvent and endEvent parameters - if present, this shall 
 % actually refer to packets.
@@ -67,29 +73,68 @@ if startPacket >= endPacket
 		', but the endEvent/Packet parameter is ' num2str(endEvent) ]);
 end
 
+if isfield(importParams, 'startTime')
+    startTime = importParams.startTime * 1e6 / 2^10;
+else
+    startTime = 0;
+end
+
+if isfield(importParams, 'endTime')
+    endTime = importParams.endTime * 1e6 / 2^10;
+else
+    endTime = inf;
+end
+
 numPacketsToRead = endPacket - startPacket + 1;
 
-% Read data
+%% Read data
+
 disp('Reading data ...')
 fseek(fileHandle, 0, 'bof'); 
 allPackets = uint32(fread(fileHandle, numPacketsToRead, 'uint32', 0, 'b'));
 
-% Let's just do this iteratively for now; not sure how to matricise this
-% Set up data arrays
+%% Prepare to unpack data
 
-majorTimeStampMask = bin2dec('0000 0000 0011 1111 1111 1111 1111 1111');
-minorTimeStampMask = bin2dec('0000 0000 0000 1111 1111 1100 0000 0000');
-columnAddressMask = bin2dec('0000 0000 0000 0000 0000 0011 1111 1111');
+% Let's just do this iteratively for now; not sure how to matricise this,
+% though see below for a half-baked attempt
 
+%% Prepare data masks
+
+majorTimeStampMask        = bin2dec('0000 0000 0011 1111 1111 1111 1111 1111');
+minorTimeStampMask        = bin2dec('0000 0000 0000 1111 1111 1100 0000 0000');
+columnAddressMask         = bin2dec('0000 0000 0000 0000 0000 0011 1111 1111');
+majorRowAddressMask       = bin2dec('0000 0000 0011 1111 0000 0000 0000 0000');
+minorRowAddressAndPolMask = bin2dec('0000 0000 0000 0000 1111 1111 1111 1111'); 
+
+%This following oneshot mask allows the identification of events to add
+%from the one-shot encoding
+minorRowAndPolOneShotMask = uint16(2 .^ (0:15)');
+oneShotPolarity = [true(8, 1); false(8, 1)];
+oneShotMinorRowAddress = uint16(repmat((0:7)', 2, 1));
+
+% Loop variables
 numEventsProcessed = 0;
 currentLengthOfEventVectors = 1024;
 majorTimeStamp = 0;
-timeStampOffSet = 0;
-polarityTimeStamp	= uint32(zeros(eventNumber, 1));
-polarityX			= uint16(zeros(eventNumber, 1));
-polarityY			= uint16(zeros(eventNumber, 1));
-polarityPolarity	= false(eventNumber, 1);
-for packetIndex = 1 : numEventsToRead
+timeStampOffset = 0;
+columnAddress = uint16(0);
+minorTimeStamp = uint32(0);
+
+% Data arrays
+timeStamp	= zeros(currentLengthOfEventVectors, 1, 'uint32');
+x			= zeros(currentLengthOfEventVectors, 1, 'uint16');
+y			= zeros(currentLengthOfEventVectors, 1, 'uint16');
+polarity    = false(currentLengthOfEventVectors, 1);
+
+%% Unpack events by iterating through packets
+
+for packetIndex = startPacket : endPacket
+    if mod(packetIndex, 10000) == 0
+		disp(['packet: ' num2str(packetIndex) '; ' ...
+              'file position: ' num2str(floor(packetIndex / 2^17)) ' MB; ' ...
+              '(' num2str(floor((packetIndex - startPacket + 1) / (endPacket - startPacket + 1) * 100)) '%)'])
+	end
+
     currentPacket = allPackets(packetIndex);
     packetCode = bitshift(currentPacket, -24);
     if packetCode == 102 % 0x66
@@ -99,34 +144,74 @@ for packetIndex = 1 : numEventsToRead
             timeStampOffset = currentTimeStamp - 1;
         end
         majorTimeStamp = bitshift(currentTimeStamp - timeStampOffset, 10);
-    elseif packetCode == 153 % 0x99
-        % Column address packet
-        minorTimeStamp = bitshift(bitand(currentPacket, majorTimeStampMask), -10);
-        columnAddress = bitand(currentPacket, columnAddressMask);
-    elseif packetCode == 204 % 0xCC
-        % Events packet
-        majorRowAddress = bitshift(bitand(currentPacket, majorRowAddressMask), 3);
-        minorRowAndPolOneShot = bitand(currentPacket, majorRowAddressMask), 3)
-        characterArray = dec2bin(m)
-        % Tack on column of 0's to the left edge
-        characterArray = [repmat('0', length(m), 1), characterArray]
-        logicalArray = logical(characterArray - '0')
-        
-        numEventsProcessed = numEventsProcessed + 1;
-        while eventNumber > currentLengthOfEventVectors - 15 % A packet can contribute
-            polarityTimeStamp	= [polarityTimeStamp;	uint64(zeros(currentLength, 1))];
-            polarityX			= [polarityX;			uint16(zeros(currentLength, 1))];
-            polarityY			= [polarityY;			uint16(zeros(currentLength, 1))];
-            polarityPolarity	= [polarityPolarity;	false(currentLength, 1)];
-        currentLength = length(polarityValid);
     else
-        error('packet formation error')
+        % apply startTime only to the majorTimeStamp - note that rezero is
+        % automatic in this import, so actually comparing to the
+        % timeStampOffset
+
+        if startTime <= timeStampOffset
+            if endTime < timeStampOffset
+                break
+            end
+            if packetCode == 153 % 0x99
+                % Column address packet
+                minorTimeStamp = bitshift(bitand(currentPacket, majorTimeStampMask), -10);
+                columnAddress = uint16(bitand(currentPacket, columnAddressMask));
+            elseif packetCode == 204 % 0xCC
+                % Events packet
+                majorRowAddress       = uint16(bitshift(bitand(currentPacket, majorRowAddressMask), -13));
+                minorRowAndPolOneShot = uint16(bitand(currentPacket, minorRowAddressAndPolMask));
+                minorRowAndPolLogical = logical(bitand(minorRowAndPolOneShot, minorRowAndPolOneShotMask));
+                numNewEvents          = nnz(minorRowAndPolLogical);
+                polarityNew           = oneShotPolarity(minorRowAndPolLogical);
+                minorRowAddress       = oneShotMinorRowAddress(minorRowAndPolLogical);
+                numEventsProcessed = numEventsProcessed + numNewEvents;
+                while numEventsProcessed > currentLengthOfEventVectors
+                    timeStamp	= [timeStamp;	zeros(currentLengthOfEventVectors, 1, 'uint32')];
+                    x			= [x;			zeros(currentLengthOfEventVectors, 1, 'uint16')];
+                    y			= [y;			zeros(currentLengthOfEventVectors, 1, 'uint16')];
+                    polarity    = [polarity;	false(currentLengthOfEventVectors, 1)];
+                    currentLengthOfEventVectors = currentLengthOfEventVectors * 2;
+                end
+                rangeStart = numEventsProcessed - numNewEvents + 1;
+                timeStamp(rangeStart : numEventsProcessed) = majorTimeStamp + minorTimeStamp;
+                x        (rangeStart : numEventsProcessed) = columnAddress; 
+                y        (rangeStart : numEventsProcessed) = majorRowAddress + minorRowAddress; 
+                polarity (rangeStart : numEventsProcessed) = polarityNew; 
+
+            else
+                error('packet formation error')
+            end
+        end
     end
-%}
+end
 
+%% Crop the data arrays and pack
+
+aedat.info.deviceAddressSpace = [640 480];
+
+if numEventsProcessed > 0 
+    polarityArray = polarity;
+    polarity = [];
+    keepLogical = [true(numEventsProcessed, 1); false(currentLengthOfEventVectors - numEventsProcessed, 1)]; 
+    polarity.timeStamp	= timeStamp(keepLogical);
+    polarity.y			= y(keepLogical) - 8; % These subtractions are because of the 1-based encoding in the SEC packet format
+    polarity.x			= x(keepLogical) - 1; % These subtractions are because of the 1-based encoding in the SEC packet format
+    polarity.polarity	= polarityArray(keepLogical);
+    aedat.data.polarity = polarity;
+    
+    % Find first and last time stamps        
+    aedat = FindFirstAndLastTimeStamps(aedat);
+
+    % Add NumEvents field for each data type
+    aedat = NumEventsByType(aedat);
+end
+
+disp('Import finished')
+
+
+%% Half-baked approach to matricising computation
 %{ 
-
-Half-baked approach to matricising computation
 
 msb = bitget(allPackets, 32);
 secondMsb = bitget(allPackets, 31);
@@ -141,106 +226,8 @@ timeStamps = FloodFillColumnDownwards(timeStamps);
 
 %}
 
-events = 
-    
-    
-% Trim events outside time window
-% This is an inefficent implementation, which allows for
-% non-monotonic timestamps. 
-
-if isfield(importParams, 'startTime')
-    disp('Trimming to start time ...')
-	tempIndex = allTs >= startTime * 1e6;
-	allAddr = allAddr(tempIndex);
-	allTs	= allTs(tempIndex);
-end
-
-if isfield(importParams, 'endTime')
-    disp('Trimming to end time ...')    
-	tempIndex = allTs <= endTime * 1e6;
-	allAddr = allAddr(tempIndex);
-	allTs	= allTs(tempIndex);
-end
-
-% Interpret the addresses
-%{ 
-- Split between DVS/DAVIS and DAS.
-	For DAS1:
-		- Special events - external injected events has never been
-		implemented for DAS
-		- Split between Address events and ADC samples
-		- Intepret address events
-		- Interpret ADC samples
-	For DVS128:
-		- Special events - external injected events are on bit 15 = 1;
-		there is a more general label for special events which is bit 31 =
-		1, but this has ambiguous interpretations; it is also overloaded
-		for the stereo pair encoding - ignore this. 
-		- Intepret address events
-	For DAVIS:
-		- Special events
-			- Interpret IMU events from special events
-		- Interpret DVS events according to chip class
-		- Interpret APS events according to chip class
-%}
-
-% Declare function for finding specific event types in eventTypes cell array
-cellFind = @(string)(@(cellContents)(strcmp(string, cellContents)));
-
-% Create structure to put all the data in 
-data = struct;
 
 
-%% DVS128
-    
-elseif strcmp(info.source, 'Dvs128')
-	% DVS128
-	specialMask = hex2dec ('8000');
-	specialLogical = bitand(allAddr, specialMask);
-	polarityLogical = ~specialLogical;
-	if (~isfield(importParams, 'dataTypes') || any(cellfun(cellFind('special'), importParams.dataTypes))) && any(specialLogical)
-		% Special events
-		data.special.timeStamp = allTs(specialLogical);
-		% No need to create address field, since there is only one type of special event
-	end
-	if (~isfield(importParams, 'dataTypes') || any(cellfun(cellFind('polarity'), importParams.dataTypes))) && any(polarityLogical)
-		% Polarity events
-		data.polarity.timeStamp = allTs(polarityLogical); % Use the negation of the special mask for polarity events
-		% Y addresses
-		yMask = hex2dec('7F00');
-		yShiftBits = 8;
-		data.polarity.y = uint16(bitshift(bitand(allAddr(polarityLogical), yMask), -yShiftBits));
-		% X addresses
-		xMask = hex2dec('fE');
-		xShiftBits = 1;
-		data.polarity.x = uint16(bitshift(bitand(allAddr(polarityLogical), xMask), -xShiftBits));
-		% Polarity bit
-		polBit = 1;
-		data.polarity.polarity = bitget(allAddr(polarityLogical), polBit) == 1;
-    end	
-    
-end
-
-%% Pack data
-
-% aedat.importParams is already there and should be unchanged
-
-info.numEventsInFile = 
-aedat.info = info;
-aedat.data = data;
-
-%% Find first and last time stamps        
-
-aedat = FindFirstAndLastTimeStamps(aedat);
-
-%% Add NumEvents field for each data type
-
-aedat = NumEventsByType(aedat);
-
-
-
-
-disp('Import finished')
 
 
 

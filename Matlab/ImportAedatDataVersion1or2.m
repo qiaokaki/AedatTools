@@ -546,6 +546,22 @@ elseif strfind(info.source, 'Davis')
 	% If you want to do chip-specific address shifts or subtractions,
 	% this would be the place to do it. 
 
+elseif strfind(info.source, 'SecDvs') 
+	if (~isfield(importParams, 'dataTypes') || any(cellfun(cellFind('polarity'), importParams.dataTypes))) 
+        
+		data.polarity.timeStamp = allTs; 
+		% Y addresses
+		yMask = hex2dec('ff800');
+		yShiftBits = 11;
+		data.polarity.y = uint16(bitshift(bitand(allAddr, yMask), -yShiftBits));
+		% X addresses
+		xMask = hex2dec('7fe');
+		xShiftBits = 1;
+		data.polarity.x = uint16(bitshift(bitand(allAddr, xMask), -xShiftBits));
+		% Polarity bit
+		polBit = 1;
+		data.polarity.polarity = bitget(allAddr, polBit) == 1;
+    end
 end
 
 %% Pack data
