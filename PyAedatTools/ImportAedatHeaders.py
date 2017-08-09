@@ -20,7 +20,8 @@ from PyAedatTools.BasicSourceName import BasicSourceName
 def ImportAedatHeaders(aedat):
 
     # Unpack the file handle
-    fileHandle = aedat['importParams']['fileHandle']
+    importParams = aedat['importParams']
+    fileHandle = importParams['fileHandle']
     
     fileHandle.seek(0)
 
@@ -56,15 +57,14 @@ def ImportAedatHeaders(aedat):
                 start_prefix = line.rfind('.')
             except:
                 start_prefix = 9    
-            info['sourceFromFile'] = BasicSourceName(
-                line[start_prefix:])
+            sourceFromFile = BasicSourceName(line[start_prefix + 1 :])
         # Version 3.0 encodes it like this
         # The following ignores any trace of previous sources
         # (prefixed with a minus sign)
         if line[: 8] == ' Source ':
             start_prefix = line.find(':')  # There should be only one colon
-            if 'sourceFromFile' in info:
-                pass
+            try: 
+                sourceFromFile
                 # One source has already been added; convert to a cell array if
                 # it has not already been done
 
@@ -74,8 +74,8 @@ def ImportAedatHeaders(aedat):
                 #    info.sourceFromFile = {info.sourceFromFile};
                 # info.sourceFromFile = [info.sourceFromFile line[start_prefix
                 #  + 2 : ];
-            else:
-                info['sourceFromFile'] = line[start_prefix + 2:]
+            except NameError:
+                sourceFromFile = line[start_prefix + 2:]
 
         # Pick out date and time of recording
 
@@ -132,23 +132,23 @@ def ImportAedatHeaders(aedat):
 
     
     # If a device is specified in input, does it match the derived source?
-    if 'source' in info:
-        info['source'] = BasicSourceName(info['source'])
-        if 'sourceFromFile' in info and info['source'] == info['sourceFromFile']:
-#            fprintf('The source given as input, "#s", doesn''t match the source \
-#            declared in the file, "#s"; assuming the source given as input.\n',
-#             inputSource, info.Source)
+    if 'source' in importParams:
+        sourceFromImportParams = BasicSourceName(importParams['source'])
+        try:
+            if sourceFromFile != sourceFromImportParams:
+                #            fprintf('The source given as input, "#s", doesn''t match the source \
+                #            declared in the file, "#s"; assuming the source given as input.\n',
+                #             inputSource, info.Source)
+                pass
+        except NameError:
             pass
-    elif not 'sourceFromFile' in info:
-    # If no source was detected, assume it was from a DVS128	
-        info['source'] = 'Dvs128'
+        info['source'] = sourceFromImportParams
     else:
-        info['source'] = info['sourceFromFile']
-    # Clean up
-    try:
-        del info['sourceFromFile']
-    except KeyError:
-        pass
+        try:
+            info['source'] = sourceFromFile
+        except UnboundLocalError:
+            # If no source was detected, assume it was from a DVS128	
+            info['source'] = 'Dvs128'
         
     """
     % Get the address space (dimensions) of the device
