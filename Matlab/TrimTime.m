@@ -46,18 +46,41 @@ if isfield(aedat.data, 'frame')
     aedat.data.frame.yPosition      = aedat.data.frame.yPosition     (keepLogical);
 end
 
+%% IMU6, SAMPLE, EAR TODO
+
+%% Point1D
+
+if isfield(aedat.data, 'point1D')
+    keepLogical = aedat.data.point1D.timeStamp >= startTime ...
+                & aedat.data.point1D.timeStamp <= endTime;
+    aedat.data.point1D.timeStamp = aedat.data.point1D.timeStamp(keepLogical);
+    aedat.data.point1D.type      = aedat.data.point1D.type     (keepLogical);
+    aedat.data.point1D.x         = aedat.data.point1D.x        (keepLogical);
+end
+
+%% Point2D
+
+if isfield(aedat.data, 'point2D')
+    keepLogical = aedat.data.point2D.timeStamp >= startTime ...
+                & aedat.data.point2D.timeStamp <= endTime;
+    aedat.data.point2D.timeStamp = aedat.data.point2D.timeStamp(keepLogical);
+    aedat.data.point2D.type      = aedat.data.point2D.type     (keepLogical);
+    aedat.data.point2D.x         = aedat.data.point2D.x        (keepLogical);
+    aedat.data.point2D.y         = aedat.data.point2D.y        (keepLogical);
+end
+
 %% Point3D
 
 if isfield(aedat.data, 'point3D')
     keepLogical = aedat.data.point3D.timeStamp >= startTime ...
                 & aedat.data.point3D.timeStamp <= endTime;
     aedat.data.point3D.timeStamp = aedat.data.point3D.timeStamp(keepLogical);
-    aedat.data.point3D.value1    = aedat.data.point3D.value1   (keepLogical);
-    aedat.data.point3D.value2    = aedat.data.point3D.value2   (keepLogical);
-    aedat.data.point3D.value3    = aedat.data.point3D.value3   (keepLogical);
+    aedat.data.point3D.type      = aedat.data.point3D.type     (keepLogical);
+    aedat.data.point3D.x         = aedat.data.point3D.x        (keepLogical);
+    aedat.data.point3D.y         = aedat.data.point3D.y        (keepLogical);
+    aedat.data.point3D.z         = aedat.data.point3D.z        (keepLogical);
 end
 
-% To do: handle other event types
 
 %% Rezero
 

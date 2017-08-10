@@ -76,16 +76,25 @@ if isfield(aedat.data, 'ear') && isfield(aedat.data.ear, 'valid')
 end
 
 if isfield(aedat.data, 'point1D') && isfield(aedat.data.point1D, 'valid')
-    aedat.data.point1D.valid        = aedat.data.point1D.valid        (aedat.data.point1D.valid); % Only keep the valid field if non-valid events are possible
+    aedat.data.point1D.type         = aedat.data.point1D.type         (aedat.data.point1D.valid);
     aedat.data.point1D.timeStamp    = aedat.data.point1D.timeStamp    (aedat.data.point1D.valid);
-    aedat.data.point1D.value        = aedat.data.point1D.value        (aedat.data.point1D.valid);
+    aedat.data.point1D.x            = aedat.data.point1D.x            (aedat.data.point1D.valid);
     aedat.data.point1D = rmfield(aedat.data.point1D, 'valid');
 end
 
 if isfield(aedat.data, 'point2D') && isfield(aedat.data.point2D, 'valid')
-    aedat.data.point2D.valid        = aedat.data.point2D.valid      (aedat.data.point2D.valid); % Only keep the valid field if non-valid events are possible
+    aedat.data.point2D.type         = aedat.data.point2D.type       (aedat.data.point2D.valid);
     aedat.data.point2D.timeStamp    = aedat.data.point2D.timeStamp  (aedat.data.point2D.valid);
-    aedat.data.point2D.value1       = aedat.data.point2D.value1     (aedat.data.point2D.valid);
-    aedat.data.point2D.value2       = aedat.data.point2D.value2     (aedat.data.point2D.valid);
+    aedat.data.point2D.x            = aedat.data.point2D.x          (aedat.data.point2D.valid);
+    aedat.data.point2D.y            = aedat.data.point2D.y          (aedat.data.point2D.valid);
     aedat.data.point2D = rmfield(aedat.data.point2D, 'valid');
+end
+
+if isfield(aedat.data, 'point3D') && isfield(aedat.data.point3D, 'valid')
+    aedat.data.point3D.type         = aedat.data.point3D.type       (aedat.data.point3D.valid);
+    aedat.data.point3D.timeStamp    = aedat.data.point3D.timeStamp  (aedat.data.point3D.valid);
+    aedat.data.point3D.x            = aedat.data.point3D.x          (aedat.data.point3D.valid);
+    aedat.data.point3D.y            = aedat.data.point3D.y          (aedat.data.point3D.valid);
+    aedat.data.point3D.z            = aedat.data.point3D.z          (aedat.data.point3D.valid);
+    aedat.data.point3D = rmfield(aedat.data.point3D, 'valid');
 end

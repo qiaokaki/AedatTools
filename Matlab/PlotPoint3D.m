@@ -3,40 +3,49 @@ function PlotPoint3D(aedat)
 %{
 
 Takes 'aedat' - a data structure containing an imported .aedat file, 
-as created by ImportAedat, and creates plots of point2D events. There are 3
-x 2d plots: timeStamp vs value1, timeStamp vs value2 and value1 vs value2;
-then there is a 3D plot with timeStamp vs value1 vs value2
+as created by ImportAedat, and creates plots of point3D events. 
+There are 4x 3d plots: 
+    - timeStamp vs x vs y 
+    - timeStamp vs y vs z;
+    - timeStamp vs x vs z;
+    - x vs y vs z;
+
+TO DO: use colour to express event Type
 %}
 
-timeStamps = double(aedat.data.point3D.timeStamp)' / 1000000;
-value1 = (aedat.data.point3D.value1)';
-value2 = (aedat.data.point3D.value2)';
+timeStamp = double(aedat.data.point3D.timeStamp)' / 1e6;
+x = (aedat.data.point3D.x)';
+y = (aedat.data.point3D.y)';
+z = (aedat.data.point3D.z)';
 
 figure
 set(gcf,'numbertitle','off','name','Point2D')
 %timeStamp vs value 1
 subplot(2, 2, 1)
-plot(timeStamps, value1, '-o')
+plot3(timeStamp, x, y, '-o')
 xlabel('Time (s)')
-ylabel('Value 1')
+ylabel('X')
+zlabel('Y')
 
 %timeStamp vs value 2
 subplot(2, 2, 2)
-plot(timeStamps, value2, '-o')
+plot3(timeStamp, y, z, '-o')
 xlabel('Time (s)')
-ylabel('Value 2')
+ylabel('Y')
+zlabel('Z')
 
 %timeStamp vs value 2
 subplot(2, 2, 3)
-plot(value1, value2, '-o')
-xlabel('Value 1')
-ylabel('Value 2')
+plot3(timeStamp, x, z, '-o')
+xlabel('Time (s)')
+ylabel('X')
+zlabel('Z')
 
 subplot(2, 2, 4)
-plot3(timeStamps, value1, value2, '-o')
-xlabel('Time (s)')
-ylabel('Value 1')
-zlabel('Value 2')
+plot3(x, y, z, '-o')
+xlabel('X')
+ylabel('Y')
+zlabel('Z')
 	
 
 

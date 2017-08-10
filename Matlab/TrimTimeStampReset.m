@@ -2,7 +2,7 @@ function aedat = TrimTimeStampReset(aedat)
 
 %{
 If timestamp reset events occur, timestamps become non-monotonic.
-Resolve this by searching for non-monotonicites in the tinmestamps for each
+Resolve this by searching for non-monotonicites in the timestamps for each
 data type and trimming away everything before the last non-monotonicity. 
 A better technique would look at the packetTimestamps, at least in aedat3
 imports. 

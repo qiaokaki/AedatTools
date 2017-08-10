@@ -37,5 +37,8 @@ end
 if isfield(aedat.data, 'point2D')
 	PlotPoint2D(aedat);
 end
+if isfield(aedat.data, 'point2D')
+	PlotPoint3D(aedat);
+end
 
 PlotPacketTimeStamps(aedat, false)

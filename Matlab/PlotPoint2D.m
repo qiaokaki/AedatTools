@@ -4,39 +4,42 @@ function PlotPoint2D(aedat)
 
 Takes 'aedat' - a data structure containing an imported .aedat file, 
 as created by ImportAedat, and creates plots of point2D events. There are 3
-x 2d plots: timeStamp vs value1, timeStamp vs value2 and value1 vs value2;
-then there is a 3D plot with timeStamp vs value1 vs value2
+x 2d plots: timeStamp vs x, timeStamp vs y and x vs y;
+then there is a 3D plot with timeStamp vs x vs y
+
+TO DO: use colour to express event Type
 %}
 
 timeStamps = double(aedat.data.point2D.timeStamp)' / 1000000;
-value1 = (aedat.data.point2D.value1)';
-value2 = (aedat.data.point2D.value2)';
+x = (aedat.data.point2D.x)';
+y = (aedat.data.point2D.y)';
 
 figure
 set(gcf,'numbertitle','off','name','Point2D')
-%timeStamp vs value 1
+%timeStamp vs x
 subplot(2, 2, 1)
-plot(timeStamps, value1, '-o')
+plot(timeStamps, x, '-o')
 xlabel('Time (s)')
-ylabel('Value 1')
+ylabel('X')
 
-%timeStamp vs value 2
+%timeStamp vs y
 subplot(2, 2, 2)
-plot(timeStamps, value2, '-o')
+plot(timeStamps, y, '-o')
 xlabel('Time (s)')
-ylabel('Value 2')
+ylabel('Y')
 
-%timeStamp vs value 2
+%x vs y
 subplot(2, 2, 3)
-plot(value1, value2, '-o')
-xlabel('Value 1')
-ylabel('Value 2')
+plot(x, y, '-o')
+xlabel('X')
+ylabel('Y')
 
+% x vs y vs time
 subplot(2, 2, 4)
-plot3(timeStamps, value1, value2, '-o')
+plot3(timeStamps, x, y, '-o')
 xlabel('Time (s)')
-ylabel('Value 1')
-zlabel('Value 2')
+ylabel('X')
+zlabel('Y')
 	
 
 

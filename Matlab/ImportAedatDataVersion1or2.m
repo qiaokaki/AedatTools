@@ -232,7 +232,7 @@ end
 %}
 
 % Declare function for finding specific event types in eventTypes cell array
-cellFind = @(string)(@(cellContents)(strcmp(string, cellContents)));
+cellFind = @(string)(@(cellContents)(strcmpi(string, cellContents)));
 
 % Create structure to put all the data in 
 data = struct;
