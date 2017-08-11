@@ -1,7 +1,4 @@
-function PlotPolarity(aedat, numPlots, distributeBy, minTime, maxTime, proportionOfPixels, contrast, transpose, flipVertical, flipHorizontal)
-
-% Note that now Reorientate and FrameFromEvents functions provide some
-% of the needed functionality, this function could be rewritten...
+function PlotPolarity(aedat, numFrames, distributeBy, minTime, maxTime, proportionOfPixels, contrast, transpose, flipVertical, flipHorizontal)
 
 %{
 Takes 'aedat' - a data structure containing an imported .aedat file, 
@@ -14,7 +11,28 @@ The events are then recruited by the time points, spreading out until
 either they are about to overlap with a neighbouring point, or until 
 a certain ratio of an array full is reached. 
 flipVertical is assumed true, so that y=0 is considered the top of the image.
+
+This function now pushes most of the computation to the FramesFromEvents
+function; however the parameter checking which occurs in there also has to
+happen at this level, in order to make a coherent call.
+What remains in this function is to interpret the flip and transpose
+parameters and do the plot
 %}
+
+if ~exist('numFrames', 'var')
+	numFrames = 3;
+end
+
+if ~exist('distributeBy', 'var')
+	distributeBy = 'time';
+end
+
+if ~exist('minTime', 'var') || (exist('minTime', 'var') && minTime == 0)
+    minTime = double(min(aedat.data.polarity.timeStamp)) / 1e6;
+end
+if ~exist('maxTime', 'var') || (exist('maxTime', 'var') && maxTime == 0)
+    maxTime = double(max(aedat.data.polarity.timeStamp)) / 1e6;
+end
 
 % The proportion of an array-full of events which is shown on a plot
 if ~exist('proportionOfPixels', 'var')
@@ -26,82 +44,26 @@ if ~exist('contrast', 'var')
     contrast = 3;
 end
 
-if ~exist('numPlots', 'var')
-	numPlots = 3;
-end
-
-if ~exist('distributeBy', 'var')
-	distributeBy = 'time';
-end
+[frames, frameCentreTimes] = FramesFromEvents(aedat, numFrames, distributeBy, minTime, maxTime, proportionOfPixels, contrast);
 
 % Distribute plots in a raster with a 3:4 ratio
-numPlotsX = round(sqrt(numPlots / 3 * 4));
-numPlotsY = ceil(numPlots / numPlotsX);
+numPlotsX = round(sqrt(numFrames / 3 * 4));
+numPlotsY = ceil(numFrames / numPlotsX);
 
-numEvents = length(aedat.data.polarity.timeStamp); % ignore issue of valid / invalid for now ...
-if strcmpi(distributeBy, 'time')
-    if ~exist('minTime', 'var') || (exist('minTime', 'var') && minTime == 0)
-        minTime = min(aedat.data.polarity.timeStamp);
-    else
-        minTime = minTime * 1e6;
-    end
-    if ~exist('maxTime', 'var') || (exist('maxTime', 'var') && maxTime == 0)
-        maxTime = max(aedat.data.polarity.timeStamp);
-    else
-        maxTime = maxTime * 1e6;
-    end
-	totalTime = maxTime - minTime;
-	timeStep = totalTime / numPlots;
-	timePoints = minTime + timeStep * 0.5 : timeStep : maxTime;
-else % distribute by event number
-	eventsPerStep = numEvents / numPlots;
-	timePoints = aedat.data.polarity.timeStamp(ceil(eventsPerStep * 0.5 : eventsPerStep : numEvents));
-end
-
-minY = double(min(aedat.data.polarity.y));
-maxY = double(max(aedat.data.polarity.y));
-minX = double(min(aedat.data.polarity.x));
-maxX = double(max(aedat.data.polarity.x));
-numPixelsInArray = (maxY - minY) * (maxX - minX);
-numPixelsToSelectEachWay = ceil(numPixelsInArray * proportionOfPixels / 2);
-
-if numPlots > 1
+if numFrames > 1
     figure
 end
-for plotCount = 1 : numPlots
-    if numPlots > 1
+for plotCount = 1 : numFrames
+    if numFrames > 1
     	subplot(numPlotsY, numPlotsX, plotCount);
     end
 	hold all
-	% Find eventIndex nearest to timePoint
-	eventIndex = find(aedat.data.polarity.timeStamp >= timePoints(plotCount), 1, 'first');
-	firstIndex = max(1, eventIndex - numPixelsToSelectEachWay);
-	lastIndex = min(numEvents, eventIndex + numPixelsToSelectEachWay);
-	selectedLogical = [false(firstIndex - 1, 1); ...
-					true(lastIndex - firstIndex + 1, 1); ...
-					false(numEvents - lastIndex, 1)];
-	
-	% This is how to do a straight plot with contrast of 1, where off (red)
-	% events overwrite on (green) events. 
-	% onLogical = selectedLogical & aedat.data.polarity.polarity;
-	% offLogical = selectedLogical & ~aedat.data.polarity.polarity;
-	% plot(aedat.data.polarity.x(onLogical), aedat.data.polarity.y(onLogical), '.g');
-	% plot(aedat.data.polarity.x(offLogical), aedat.data.polarity.y(offLogical), '.r');
-	
-	% However, we will create an image from events with contrast, as used
-	% in jAER
-	% accumulate the array from the event indices, using an increment of 1
-	% for on and a decrement of 1 for off.
-    if exist('transpose', 'var') && transpose
-    	frameFromEvents = accumarray([aedat.data.polarity.x(selectedLogical) aedat.data.polarity.y(selectedLogical)] + 1, aedat.data.polarity.polarity(selectedLogical) * 2 - 1);
-    else
-        frameFromEvents = accumarray([aedat.data.polarity.y(selectedLogical) aedat.data.polarity.x(selectedLogical)] + 1, aedat.data.polarity.polarity(selectedLogical) * 2 - 1);
+
+    frame = squeeze(frames(:, :, plotCount));
+	if exist('transpose', 'var') && transpose
+        frame = frame';
     end
-    % Clip the values according to the contrast
-	frameFromEvents(frameFromEvents > contrast) = contrast;
-	frameFromEvents(frameFromEvents < - contrast) = -contrast;
-	frameFromEvents = frameFromEvents + contrast + 1;
-	image(frameFromEvents)
+    image(frame - 1); % I'm not sure why I need that - 1; perhaps the colormap indices are zero-based?
     colormap(redgreencmap(contrast * 2 + 1))
 	axis equal tight
 	if ~exist('flipVertical', 'var') || flipVertical
@@ -110,6 +72,6 @@ for plotCount = 1 : numPlots
     if exist('flipHorizontal', 'var') && flipHorizontal
 		set(gca, 'XDir', 'reverse')
     end
-	title([num2str(double(aedat.data.polarity.timeStamp(eventIndex)) / 1000000) ' s'])
+	title([num2str(double(frameCentreTimes(plotCount)) / 1e6) ' s'])
 end
 

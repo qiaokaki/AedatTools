@@ -7,8 +7,9 @@ it gives a graph of data density. All the graphs are superimposed. The
 number of time bins used to create the graph is an argument of the function. 
 runningAverage - the number of bins over which to smooth.
 
-THERE WOULD BE A BETTER TREATMENT - plotting instantaneous data rate by
-event - this would be consistent with the semilogy plot as there would be
+THERE WOULD BE A BETTER TREATMENT IF YOU"RE INTERESTED IN IDENTIFYING DATA GAPS 
+- plotting instantaneous data rate by event - 
+this would be consistent with the semilogy plot as there would be
 no zero data points and the size of the downward spikes would tell you how
 long the data gaps were for. 
 

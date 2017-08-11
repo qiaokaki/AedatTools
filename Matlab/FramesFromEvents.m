@@ -62,33 +62,31 @@ frames = zeros([aedat.info.deviceAddressSpace(2) ...
 if ~exist('minTime', 'var') || (exist('minTime', 'var') && minTime == 0)
     minTime = min(timeStamp);
 else
-    minTime = minTime * 1e6;
+    minTime = uint32(minTime * 1e6);
 end
 if ~exist('maxTime', 'var') || (exist('maxTime', 'var') && maxTime == 0)
     maxTime = max(timeStamp);
 else
-    maxTime = maxTime * 1e6;
+    maxTime = uint32(maxTime * 1e6);
 end
 numEvents = length(timeStamp); % ignore valid flags - convention for AedatTools
     
 % Calculate the time distribution
-if numel(distributeBy) > 1 % distributeBy is a vector of the frameCentreTimes
+if strcmpi(distributeBy, 'time')
+    totalTime = maxTime - minTime;
+    timeStep = totalTime / numFrames;
+    frameCentreTimes = minTime + timeStep * 0.5 : timeStep : maxTime;
+    frameBoundaryTimes = [minTime frameCentreTimes + timeStep * 0.5];
+elseif strcmpi(distributeBy, 'events') % distribute by event number
+    eventsPerStep = numEvents / numFrames;
+    frameCentreTimes = timeStamp(ceil(eventsPerStep * 0.5 : eventsPerStep : numEvents));
+    frameBoundaryTimes = timeStamp([1 ceil(eventsPerStep * 1 : eventsPerStep : numEvents)]);
+else % distributeBy is a vector of the frameCentreTimes
     if numel(distributeBy) ~= numFrames
         error('If you provide the frameCentreTimes in the "distributeBy" parameter, then the number of elements must match the numFrames parameter')
     end
     frameCentreTimes = uint64(distributeBy * 1e6); % assume that it is given in secs
     frameBoundaryTimes = uint64([minTime (frameCentreTimes(1 : end - 1) + frameCentreTimes(2 : end)) / 2 maxTime]);
-else
-    if strcmpi(distributeBy, 'time')
-        totalTime = maxTime - minTime;
-        timeStep = totalTime / numFrames;
-        frameCentreTimes = minTime + timeStep * 0.5 : timeStep : maxTime;
-        frameBoundaryTimes = [minTime frameCentreTimes + timeStep * 0.5];
-    else % distribute by event number
-        eventsPerStep = numEvents / numFrames;
-        frameCentreTimes = timeStamp(ceil(eventsPerStep * 0.5 : eventsPerStep : numEvents));
-        frameBoundaryTimes = timeStamp([1 ceil(eventsPerStep * 1 : eventsPerStep : numEvents)]);
-    end
 end
     
 % frameCentreTimes now contains the division lines between frames.

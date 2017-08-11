@@ -62,6 +62,10 @@ if ~exist('dataTimeStamps', 'var') || dataTimeStamps
             aedat.data.point2D.timeStamp = uint64(double(aedat.data.point2D.timeStamp * factor));
         end
 
+        if isfield(aedat.data, 'point3D')
+            aedat.data.point3D.timeStamp = uint64(double(aedat.data.point3D.timeStamp * factor));
+        end
+
         aedat = FindFirstAndLastTimeStamps(aedat);
 
         if isfield(aedat.info, 'packetTimeStamps')

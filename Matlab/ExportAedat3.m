@@ -66,8 +66,8 @@ infoField = uint32(aedat.data.point2D.type * 2) ...
               + validPlusScale;
 for eventIdx = 1 : aedat.data.point2D.numEvents
     fwrite(f, infoField(eventIdx), 'uint32', 0, 'l');
-    fwrite(f, aedat.data.point2D.value1(eventIdx), 'single', 0, 'l');
-    fwrite(f, aedat.data.point2D.value2(eventIdx), 'single', 0, 'l');
+    fwrite(f, aedat.data.point2D.x(eventIdx), 'single', 0, 'l');
+    fwrite(f, aedat.data.point2D.y(eventIdx), 'single', 0, 'l');
     fwrite(f, aedat.data.point2D.timeStamp(eventIdx), 'uint32', 0, 'l');
 end
 

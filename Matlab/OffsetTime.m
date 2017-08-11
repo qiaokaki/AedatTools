@@ -57,4 +57,14 @@ if isfield(aedat.data, 'point2D')
     aedat.data.point2D.timeStamp = uint64(int64(aedat.data.point2D.timeStamp) + offset);
 end
 
+%Point3D
+if isfield(aedat.data, 'point3D')
+    aedat.data.point3D.timeStamp = uint64(int64(aedat.data.point3D.timeStamp) + offset);
+end
+
+%Point4D
+if isfield(aedat.data, 'point4D')
+    aedat.data.point4D.timeStamp = uint64(int64(aedat.data.point4D.timeStamp) + offset);
+end
+
 aedat = FindFirstAndLastTimeStamps(aedat);
