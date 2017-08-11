@@ -146,15 +146,24 @@ def ImportAedatDataVersion3(aedat):
         point1DNumEvents = 0
         point1DValid     = np.zeros(0, dtype=bool)
         point1DDataFormat = np.dtype([('info', '<u4'), 
-                                      ('value', '<f4'), 
+                                      ('x', '<f4'), 
                                       ('timeStamp', '<i4')])
 
         point2DNumEvents = 0
         point2DValid     = np.zeros(0, dtype=bool)
         point2DDataFormat = np.dtype([('info', '<u4'), 
-                                      ('value1', '<f4'), 
-                                      ('value2', '<f4'), 
+                                      ('x', '<f4'), 
+                                      ('y', '<f4'), 
                                       ('timeStamp', '<i4')])
+
+        point3DNumEvents = 0
+        point3DValid     = np.zeros(0, dtype=bool)
+        point3DDataFormat = np.dtype([('info', '<u4'), 
+                                      ('x', '<f4'), 
+                                      ('y', '<f4'), 
+                                      ('z', '<f4'), 
+                                      ('timeStamp', '<i4')])
+
         # Ignore scale for now 
   
     fileHandle.seek(info['beginningOfDataPointer'])
@@ -268,15 +277,15 @@ def ImportAedatDataVersion3(aedat):
                         # First check if the array is big enough
                         currentLength = len(polarityValid)
                         if currentLength == 0:
-                            polarityValid		= np.zeros(eventNumber, dtype=bool)
-                            polarityTimeStamp	= np.zeros(eventNumber, 'uint64')
-                            polarityX			= np.zeros(eventNumber, 'uint16')
-                            polarityY			= np.zeros(eventNumber, 'uint16')
-                            polarityPolarity	= np.false(eventNumber);
-                        else:	
+                            polarityValid     = np.zeros(eventNumber, dtype=bool)
+                            polarityTimeStamp = np.zeros(eventNumber, 'uint64')
+                            polarityX         = np.zeros(eventNumber, 'uint16')
+                            polarityY         = np.zeros(eventNumber, 'uint16')
+                            polarityPolarity  = np.false(eventNumber);
+                        else:
                             while eventNumber > currentLength - polarityNumEvents:
                                 polarityValid     = np.append(polarityValid,     np.zeros(currentLength, 'bool'  ))
-                                polarityTimeStamp = np.append(polarityTimeStamp,	 np.zeros(currentLength, 'uint64'))
+                                polarityTimeStamp = np.append(polarityTimeStamp, np.zeros(currentLength, 'uint64'))
                                 polarityX         = np.append(polarityX,         np.zeros(currentLength, 'uint16'))
                                 polarityY         = np.append(polarityY,         np.zeros(currentLength, 'uint16'))
                                 polarityPolarity  = np.append(polarityPolarity,  np.false(currentLength          ))
@@ -485,16 +494,16 @@ def ImportAedatDataVersion3(aedat):
                         # First check if the array is big enough
                         currentLength = len(point1DValid)
                         if currentLength == 0:
-                            point1DValid		= np.zeros(eventNumber, 'bool')
-                            point1DTimeStamp	= np.zeros(eventNumber, 'uint64')
-                            point1DType		= np.zeros(eventNumber, 'uint8')
-                            point1DValue		= np.zeros(eventNumber, 'float32')
+                            point1DValid     = np.zeros(eventNumber, 'bool')
+                            point1DTimeStamp = np.zeros(eventNumber, 'uint64')
+                            point1DType      = np.zeros(eventNumber, 'uint8')
+                            point1DX         = np.zeros(eventNumber, 'float32')
                         else:	
                             while eventNumber > currentLength - point1DNumEvents:
                                 point1DValid		= np.append(point1DValid,		np.zeros(currentLength, 'bool'  ))
                                 point1DTimeStamp	= np.append(point1DTimeStamp,	np.zeros(currentLength, 'uint64'))
                                 point1DType	    = np.append(point1DType,	    np.zeros(currentLength, 'uint8'))
-                                point1DValue		= np.append(point1DValue,		np.zeros(currentLength, 'float32'))
+                                point1DX		= np.append(point1DX,		np.zeros(currentLength, 'float32'))
                                 currentLength = len(point1DValid)
                         allEvents = np.fromfile(fileHandle, point1DDataFormat, eventNumber)
                         allInfo = np.array(allEvents['info'])
@@ -503,8 +512,8 @@ def ImportAedatDataVersion3(aedat):
                         point1DType[point1DNumEvents : point1DNumEvents + eventNumber] \
                             = (allInfo and 0xFE) >> 1 # Next 7 bits are the point1D event type
                         # point1D scale would go here - next 8 bits - no need at the present    
-                        point1DValue[point1DNumEvents : point1DNumEvents + eventNumber] \
-                            = np.array(allEvents['value'])
+                        point1DX[point1DNumEvents : point1DNumEvents + eventNumber] \
+                            = np.array(allEvents['x'])
                         point1DTimeStamp[point1DNumEvents : point1DNumEvents + eventNumber] \
                             = packetTimeStampOffset + np.uint64(np.array(allEvents['timeStamp']))
                         mainTimeStamp = point1DTimeStamp(point1DNumEvents)
@@ -517,18 +526,18 @@ def ImportAedatDataVersion3(aedat):
                         # First check if the array is big enough
                         currentLength = len(point2DValid)
                         if currentLength == 0:
-                            point2DValid		= np.zeros(eventNumber, 'bool')
-                            point2DTimeStamp	= np.zeros(eventNumber, 'uint64')
-                            point2DType		= np.zeros(eventNumber, 'uint8')
-                            point2DValue1		= np.zeros(eventNumber, 'float32')
-                            point2DValue2		= np.zeros(eventNumber, 'float32')
-                        else:	
+                            point2DValid     = np.zeros(eventNumber, 'bool')
+                            point2DTimeStamp = np.zeros(eventNumber, 'uint64')
+                            point2DType      = np.zeros(eventNumber, 'uint8')
+                            point2DX         = np.zeros(eventNumber, 'float32')
+                            point2DY         = np.zeros(eventNumber, 'float32')
+                        else:
                             while eventNumber > currentLength - point1DNumEvents:
-                                point2DValid		= np.append(point2DValid,		np.zeros(currentLength, 'bool'  ))
-                                point2DTimeStamp	= np.append(point2DTimeStamp,	np.zeros(currentLength, 'uint64'))
-                                point2DType	    = np.append(point2DType,	    np.zeros(currentLength, 'uint8'))
-                                point2DValue1		= np.append(point2DValue1,		np.zeros(currentLength, 'float32'))
-                                point2DValue2		= np.append(point2DValue2,		np.zeros(currentLength, 'float32'))
+                                point2DValid     = np.append(point2DValid,     np.zeros(currentLength, 'bool'  ))
+                                point2DTimeStamp = np.append(point2DTimeStamp, np.zeros(currentLength, 'uint64'))
+                                point2DType      = np.append(point2DType,	      np.zeros(currentLength, 'uint8'))
+                                point2DX         = np.append(point2DX,    np.zeros(currentLength, 'float32'))
+                                point2DY         = np.append(point2DY,    np.zeros(currentLength, 'float32'))
                                 currentLength = len(point1DValid)
                         allEvents = np.fromfile(fileHandle, point2DDataFormat, eventNumber)
                         allInfo = np.array(allEvents['info'])
@@ -537,14 +546,54 @@ def ImportAedatDataVersion3(aedat):
                         point2DType[point2DNumEvents : point2DNumEvents + eventNumber] \
                             = (allInfo & 0xFE) >> 1 # Next 7 bits are the point1D event type
                         # point1D scale would go here - next 8 bits - no need at the present    
-                        point2DValue1[point2DNumEvents : point2DNumEvents + eventNumber] \
-                            = np.array(allEvents['value1'])
-                        point2DValue2[point2DNumEvents : point2DNumEvents + eventNumber] \
-                            = np.array(allEvents['value2'])
+                        point2DX[point2DNumEvents : point2DNumEvents + eventNumber] \
+                            = np.array(allEvents['x'])
+                        point2DY[point2DNumEvents : point2DNumEvents + eventNumber] \
+                            = np.array(allEvents['y'])
                         point2DTimeStamp[point2DNumEvents : point2DNumEvents + eventNumber] \
                             = packetTimeStampOffset + np.uint64(np.array(allEvents['timeStamp']))
                         mainTimeStamp = point2DTimeStamp[point2DNumEvents]
                         point2DNumEvents = point2DNumEvents + eventNumber
+                        
+                # Point3D
+                elif eventType == 10:
+
+                    if allDataTypes or 'point3D' in info['dataTypes']:
+                        # First check if the array is big enough
+                        currentLength = len(point3DValid)
+                        if currentLength == 0:
+                            point3DValid     = np.zeros(eventNumber, 'bool')
+                            point3DTimeStamp = np.zeros(eventNumber, 'uint64')
+                            point3DType      = np.zeros(eventNumber, 'uint8')
+                            point3DX         = np.zeros(eventNumber, 'float32')
+                            point3DY         = np.zeros(eventNumber, 'float32')
+                            point3DZ         = np.zeros(eventNumber, 'float32')
+                        else:
+                            while eventNumber > currentLength - point1DNumEvents:
+                                point3DValid     = np.append(point3DValid,     np.zeros(currentLength, 'bool'  ))
+                                point3DTimeStamp = np.append(point3DTimeStamp, np.zeros(currentLength, 'uint64'))
+                                point3DType      = np.append(point3DType,	      np.zeros(currentLength, 'uint8'))
+                                point3DX         = np.append(point3DX,         np.zeros(currentLength, 'float32'))
+                                point3DY         = np.append(point3DY,         np.zeros(currentLength, 'float32'))
+                                point3DZ         = np.append(point3DZ,         np.zeros(currentLength, 'float32'))
+                                currentLength = len(point1DValid)
+                        allEvents = np.fromfile(fileHandle, point3DDataFormat, eventNumber)
+                        allInfo = np.array(allEvents['info'])
+                        point3DValid[point3DNumEvents : point3DNumEvents + eventNumber] \
+                            = np.logical_and(allInfo, 0x1) # Pick off the first bit
+                        point3DType[point3DNumEvents : point3DNumEvents + eventNumber] \
+                            = (allInfo & 0xFE) >> 1 # Next 7 bits are the point1D event type
+                        # point1D scale would go here - next 8 bits - no need at the present    
+                        point3DX[point3DNumEvents : point3DNumEvents + eventNumber] \
+                            = np.array(allEvents['x'])
+                        point3DY[point3DNumEvents : point3DNumEvents + eventNumber] \
+                            = np.array(allEvents['y'])
+                        point3DZ[point3DNumEvents : point3DNumEvents + eventNumber] \
+                            = np.array(allEvents['z'])                            
+                        point3DTimeStamp[point3DNumEvents : point3DNumEvents + eventNumber] \
+                            = packetTimeStampOffset + np.uint64(np.array(allEvents['timeStamp']))
+                        mainTimeStamp = point3DTimeStamp[point3DNumEvents]
+                        point3DNumEvents = point3DNumEvents + eventNumber
 
                 else:
                     raise Exception('Unknown event type')
@@ -645,7 +694,7 @@ def ImportAedatDataVersion3(aedat):
             point1D['valid'] = point1DValid[0 : point1DNumEvents] 
             point1D['timeStamp'] = point1DTimeStamp[0 : point1DNumEvents]
             point1D['type'] = point1DType[0 : point1DNumEvents]
-            point1D['value'] = point1DValue[0 : point1DNumEvents]
+            point1D['x'] = point1DX[0 : point1DNumEvents]
             outputData['point1D'] = point1D
     
         if point2DNumEvents > 0:
@@ -653,9 +702,19 @@ def ImportAedatDataVersion3(aedat):
             point2D['valid'] = point2DValid[0 : point2DNumEvents]
             point2D['timeStamp'] = point2DTimeStamp[0 : point2DNumEvents]
             point2D['type'] = point2DType[0 : point2DNumEvents]
-            point2D['value1'] = point2DValue1[0 : point2DNumEvents]
-            point2D['value2'] = point2DValue2[0 : point2DNumEvents]
+            point2D['x'] = point2DX[0 : point2DNumEvents]
+            point2D['y'] = point2DY[0 : point2DNumEvents]
             outputData['point2D'] = point2D
+            
+        if point3DNumEvents > 0:
+            point3D = {}
+            point3D['valid'] = point3DValid[0 : point3DNumEvents]
+            point3D['timeStamp'] = point3DTimeStamp[0 : point3DNumEvents]
+            point3D['type'] = point3DType[0 : point3DNumEvents]
+            point3D['x'] = point3DX[0 : point3DNumEvents]
+            point3D['y'] = point3DY[0 : point3DNumEvents]
+            point3D['z'] = point3DZ[0 : point3DNumEvents]
+            outputData['point3D'] = point3D
 
     # Pack packet info 
     info['packetTypes']     = packetTypes[0 : packetCount]
