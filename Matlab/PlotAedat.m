@@ -37,7 +37,7 @@ end
 if isfield(aedat.data, 'point2D')
 	PlotPoint2D(aedat);
 end
-if isfield(aedat.data, 'point2D')
+if isfield(aedat.data, 'point3D')
 	PlotPoint3D(aedat);
 end
 
