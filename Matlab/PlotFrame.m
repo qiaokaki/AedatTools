@@ -1,4 +1,4 @@
-function PlotFrame(aedat, numPlots, distributeBy, minTime, maxTime, transpose, flipVertical, flipHorizontal)
+def PlotFrame(aedat, numPlots, distributeBy, minTime, maxTime, transpose, flipVertical, flipHorizontal)
 
 %{
 Takes 'aedat' - a data structure containing an imported .aedat file, 

@@ -27,7 +27,7 @@ def ExportRosbag(aedat):
     # Open bag
     bag = rosbag.Bag(bagFilePath, 'w')
 
-#%% Images
+#%% Frames
 
     if 'frame' in aedat['data'] \
         and ('dataTypes' not in aedat['info'] or 'frame' in aedat['info']['dataTypes']): 
@@ -47,7 +47,7 @@ def ExportRosbag(aedat):
             img_msg.header.stamp = timeStamp
             bag.write(topic='/dvs/image_raw', msg=img_msg, t=timeStamp)
     
-    #%% Events
+#%% Polarity
     
     # Put several events into an array in a single ros message, for efficiency     
     
@@ -97,7 +97,7 @@ def ExportRosbag(aedat):
             eventArrayObject.events = eventArray
             bag.write(topic='/dvs/events', msg=eventArrayObject, t=e.ts)
             
-    #%% Events
+    #%% IMU6
     
     # Put several events into an array in a single ros message, for efficiency     
     if 'imu6' in aedat['data'] \

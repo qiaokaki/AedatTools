@@ -255,12 +255,14 @@ def ImportAedatDataVersion1or2(aedat):
                         - outputData['frame']['yPosition'][frameIndex] + 1 
                 # If we worked out which way the data is ramping in each
                 # direction, and if we could exclude data loss, then we could
-                # do some nice clean matrix transformations  but I'm just going
+                # do some nice clean matrix transformations; but I'm just going
                 # to iterate through the samples, putting them in the right
                 # place in the array according to their address
                 
                  # first create a temporary array - there is no concept of
                  # colour channels in aedat2
+                
+                # IN MATLAB IMPLEMENTATION, THIS FOLLOWING LOOP IS REPLACED BY ACCUMARRAY FUNCTION - Haven't figured out a good python equivalent yet                
                 tempSamples = np.zeros((outputData['frame']['yLength'][frameIndex], \
                                     outputData['frame']['xLength'][frameIndex]), dtype='uint16') 
                 for sampleIndex in range(frameStarts[frameIndex], frameStarts[frameIndex + 1]):
@@ -397,9 +399,9 @@ def ImportAedatDataVersion1or2(aedat):
     aedat['data'] = outputData
 
     # Find first and last time stamps        
-    aedat = FindFirstAndLastTimeStamps(aedat);
+    aedat = FindFirstAndLastTimeStamps(aedat)
     
     # Add NumEvents field for each data type
-    aedat = NumEventsByType(aedat);
-    '''    
+    aedat = NumEventsByType(aedat)
+       
     return aedat
