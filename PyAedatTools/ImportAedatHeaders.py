@@ -53,17 +53,16 @@ def ImportAedatHeaders(aedat):
         if line[: 9] == ' AEChip: ':
             # Ignore everything the class path and only use what follows the
             # final dot
-            try:
-                start_prefix = line.rfind('.')
-            except:
+            start_prefix = line.rfind('.')
+            if start_prefix == -1:
                 start_prefix = 9    
-            sourceFromFile = BasicSourceName(line[start_prefix + 1 :])
+            sourceFromFile = BasicSourceName(line[start_prefix :])
         # Version 3.0 encodes it like this
         # The following ignores any trace of previous sources
         # (prefixed with a minus sign)
         if line[: 8] == ' Source ':
             start_prefix = line.find(':')  # There should be only one colon
-            try: 
+            try:
                 sourceFromFile
                 # One source has already been added; convert to a cell array if
                 # it has not already been done
