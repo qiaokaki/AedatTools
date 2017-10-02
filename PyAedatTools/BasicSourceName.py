@@ -59,4 +59,4 @@ def BasicSourceName(inp):
         'das1': 'Das1',
         'cochleaams1c': 'CochleaAms1c'}
 
-    return devices.get(inp.lower()[:-2], 'Dvs128')  # Cut off '\r'
+    return devices.get(inp.lower(), 'Dvs128')
