@@ -56,7 +56,7 @@ def ImportAedatHeaders(aedat):
             start_prefix = line.rfind('.')
             if start_prefix == -1:
                 start_prefix = 9    
-            sourceFromFile = BasicSourceName(line[start_prefix :])
+            sourceFromFile = BasicSourceName(line[start_prefix+1:-2]) # Cut off '\r'
         # Version 3.0 encodes it like this
         # The following ignores any trace of previous sources
         # (prefixed with a minus sign)
