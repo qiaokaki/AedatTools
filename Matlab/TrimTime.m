@@ -7,8 +7,23 @@ Times come in as seconds
 
 dbstop if error
 
-startTime = uint64(startTime * 1e6);
-endTime = uint64(endTime * 1e6);
+if ~exist('startTime', 'var')
+    startTime = 0;
+end
+
+if ~exist('endTime', 'var') || endTime == 0
+    endTime = double(aedat.info.lastTimeStamp) / 1e6;
+end
+
+% Choose the right data type to avoid converting the timestamps when a
+% comparison is necessary.
+if ~isfield(aedat.info, 'fileFormat') || aedat.info.fileFormat == 2
+    startTime = uint32(startTime * 1e6);
+    endTime = uint32(endTime * 1e6);
+else
+    startTime = uint64(startTime * 1e6);
+    endTime = uint64(endTime * 1e6);
+end
 
 if ~isfield(aedat, 'data')
     disp('No data found')
@@ -46,7 +61,21 @@ if isfield(aedat.data, 'frame')
     aedat.data.frame.yPosition      = aedat.data.frame.yPosition     (keepLogical);
 end
 
-%% IMU6, SAMPLE, EAR TODO
+%% Imu6
+
+if isfield(aedat.data, 'imu6')
+    keepLogical = aedat.data.imu6.timeStamp >= startTime & aedat.data.imu6.timeStamp <= endTime;
+    aedat.data.imu6.timeStamp = aedat.data.imu6.timeStamp (keepLogical);
+    aedat.data.imu6.accelX    = aedat.data.imu6.accelX    (keepLogical);
+    aedat.data.imu6.accelY    = aedat.data.imu6.accelY    (keepLogical);
+    aedat.data.imu6.accelZ    = aedat.data.imu6.accelZ    (keepLogical);
+    aedat.data.imu6.gyroX     = aedat.data.imu6.gyroX     (keepLogical);
+    aedat.data.imu6.gyroY     = aedat.data.imu6.gyroY     (keepLogical);
+    aedat.data.imu6.gyroZ     = aedat.data.imu6.gyroZ     (keepLogical);
+    aedat.data.imu6.temperature = aedat.data.imu6.temperature(keepLogical);
+end
+
+%% SAMPLE, EAR TODO
 
 %% Point1D
 
@@ -81,6 +110,10 @@ if isfield(aedat.data, 'point3D')
     aedat.data.point3D.z         = aedat.data.point3D.z        (keepLogical);
 end
 
+%% Tidy up
+
+aedat = NumEventsByType(aedat);
+aedat = FindFirstAndLastTimeStamps(aedat);
 
 %% Rezero
 
@@ -88,7 +121,4 @@ if exist('reZero', 'var') && reZero
     aedat = ZeroTime(aedat);
 end
 
-%% Tidy up
 
-aedat = NumEventsByType(aedat);
-aedat = FindFirstAndLastTimeStamps(aedat);

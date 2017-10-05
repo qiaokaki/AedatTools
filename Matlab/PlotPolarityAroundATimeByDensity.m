@@ -1,14 +1,14 @@
-function PlotPolarityAroundATime(aedat, time, numPlots, minProportionOfPixels, maxProportionOfPixels, contrast, transposeVar, flipVertical, flipHorizontal)
+function PlotPolarityAroundATimeByDensity(aedat, time, numTimePoints, numDensities, minProportionOfPixels, maxProportionOfPixels, contrast, transposeVar, flipVertical, flipHorizontal)
 
 %{
 Takes 'aedat' - a data structure containing an imported .aedat file, 
 as created by ImportAedat, and creates a series of green/red plots of
 polarity data. 
-Unlike the PlotPolarity function, all these frames are constructed around
-the same point in time ('time' (s)). The events are then recruited around 
-this time point, spreading out until a certain ratio of a full array
-is reached. 
-The number of subplots is given by the numPlots parameter.
+Plots in Y have different densities (i.e. proportions of pixels). These
+densities are distributed exponentially between the min and max parameters
+Plots in X have different centre times. The numTimePoints param must be
+odd, and the centre plot in X is the one centred at the parameter 'time'.
+
 For numPlots > 1, the proportionOfPixels used to include events around that
 time point is varied logarithmically from minProp.. to maxProp.
 Defaults are 0.1 and 1. 
@@ -23,8 +23,15 @@ else
     time = time * 1e6;
 end
 
-if ~exist('numPlots', 'var')
-	numPlots = 3;
+if ~exist('numDensities', 'var')
+	numDensities = 3;
+end
+
+if ~exist('numTimePoints', 'var')
+	numTimePoints = 3;
+end
+if mod(numTimePoints,2) == 0
+	numTimePoints = numTimePoints + 1;
 end
 
 if ~exist('distributeBy', 'var')
@@ -34,12 +41,12 @@ end
 if ~exist('minProportionOfPixels', 'var') ...
         || (exist('minProportionOIfPixels', 'var') ...
             && minProportionOfPixels == 0)
-    minProportionOfPixels = 0.1;
+    minProportionOfPixels = 0.001;
 end
 if ~exist('maxProportionOfPixels', 'var') ...
         || (exist('maxProportionOIfPixels', 'var') ...
             && maxProportionOfPixels == 0)
-    maxProportionOfPixels = 1;
+    maxProportionOfPixels = 0.1;
 end
 
 % The 'contrast' for display of events, as used in jAER.
@@ -58,17 +65,15 @@ numEvents   = aedat.data.polarity.numEvents;
 
 %% Produce plots
 
-% Distribute plots in a raster with a 3:4 ratio
-numPlotsX = round(sqrt(numPlots / 3 * 4));
-numPlotsY = ceil(numPlots / numPlotsX);
-
 % Find eventIndex nearest to timePoint
 eventIndex = find(timeStamp >= time, 1, 'first');
 if isempty(eventIndex)
     eventIndex = numEvents;
 end
 
-if numPlots > 1
+numPlots = numDensities * numTimePoints;
+
+if numDensities > 1
     % distribute the 
     logMin = log(minProportionOfPixels);
     logMax = log(maxProportionOfPixels);
@@ -81,12 +86,8 @@ if numPlots > 1
 else
     numPixelsToSelectEachWay = minProportionOfPixels; % Arbitrrary choice to use the minimum 
 end
-for plotIndex = 1 : numPlots
-    if numPlots > 1
-    	subplot(numPlotsY, numPlotsX, plotIndex);
-    end
-	hold all
-
+for densityIndex = 1 : numDensities
+    % First do the central timePoint
     firstIndex = max(1, eventIndex - numPixelsToSelectEachWay(plotIndex));
     lastIndex = min(numEvents, eventIndex + numPixelsToSelectEachWay(plotIndex));
     selectedLogical = [false(firstIndex - 1, 1); ...
@@ -110,6 +111,38 @@ for plotIndex = 1 : numPlots
 		set(gca, 'XDir', 'reverse')
     end
 	title(['Proportion of pixels: ' num2str(proportionsOfPixels(plotIndex))])
+    
+    % Then work outwards from the central time point
+    lastIndexUp = lastIndex;
+    firstIndexDown = firstIndex;
+    for timePointsIndex = (numTimePoints - 1) / 2; 
+        subplot(numPlotsY, numPlotsX, plotIndex);
+        hold all
+
+        firstIndex = max(1, eventIndex - numPixelsToSelectEachWay(plotIndex));
+        lastIndex = min(numEvents, eventIndex + numPixelsToSelectEachWay(plotIndex));
+        selectedLogical = [false(firstIndex - 1, 1); ...
+                        true(lastIndex - firstIndex + 1, 1); ...
+                        false(numEvents - lastIndex, 1)];
+        eventsForFrame = struct;
+        eventsForFrame.x        = x(selectedLogical);
+        eventsForFrame.y        = y(selectedLogical);
+        eventsForFrame.polarity = polarity(selectedLogical);
+        frame = FrameFromEvents(eventsForFrame, contrast, aedat.info.deviceAddressSpace);
+        if exist('transpose', 'var') && transposeVar
+            frame = frame';
+        end
+        image(frame - 1);
+        colormap(redgreencmap(contrast * 2 + 1))
+        axis equal tight
+        if ~exist('flipVertical', 'var') || flipVertical
+            set(gca, 'YDir', 'reverse')
+        end
+        if exist('flipHorizontal', 'var') && flipHorizontal
+            set(gca, 'XDir', 'reverse')
+        end
+        title(['Proportion of pixels: ' num2str(proportionsOfPixels(plotIndex))])
+    end
 end
 
 

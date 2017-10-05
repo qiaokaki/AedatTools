@@ -280,7 +280,7 @@ if strcmp(info.source, 'Das1')
 elseif strcmp(info.source, 'Dvs128')
 	% DVS128
 	specialMask = hex2dec ('8000');
-	specialLogical = bitand(allAddr, specialMask);
+	specialLogical = boolean(bitand(allAddr, specialMask));
 	polarityLogical = ~specialLogical;
 	if (~isfield(importParams, 'dataTypes') || any(cellfun(cellFind('special'), importParams.dataTypes))) && any(specialLogical)
 		% Special events
@@ -305,7 +305,10 @@ elseif strcmp(info.source, 'Dvs128')
     
 %% Davis
 
-elseif strfind(info.source, 'Davis') 
+elseif (~isempty(strfind(info.source, 'Davis')) ...
+        && strfind(info.source, 'Davis')) ...
+       || (~isempty(strfind(info.source, 'SecDvs')) ... 
+           &&strfind(info.source, 'SecDvs'))
 	% DAVIS
 	% In the 32-bit address:
 	% bit 32 (1-based) being 1 indicates an APS sample

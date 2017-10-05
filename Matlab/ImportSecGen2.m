@@ -1,4 +1,4 @@
-function aedat = ImportSec(aedat)
+function aedat = ImportSecGen2(aedat)
 %{
 This function works similarly to ImportAedat, but takes instead data from 
 SEC DVS Gen2. These .bin files have no header info, therefore they are not 

@@ -21,6 +21,7 @@ if exist('dims', 'var')
 else
     frame = accumarray([polarity.y polarity.x] + 1, polarity.polarity * 2 - 1);    
 end
+
 % Clip the values according to the contrast
 frame(frame > contrast) = contrast;
 frame(frame < - contrast) = -contrast;

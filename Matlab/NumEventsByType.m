@@ -52,13 +52,19 @@ if isfield(aedat.data, 'point1D')
 end
 if isfield(aedat.data, 'point2D')
 	aedat.data.point2D.numEvents = length(aedat.data.point2D.timeStamp);
-    if aedat.data.special.point2D == 0
+    if aedat.data.point2D.numEvents == 0
         aedat.data = rmfield(aedat.data, 'point2D');
     end
 end
 if isfield(aedat.data, 'point3D')
 	aedat.data.point3D.numEvents = length(aedat.data.point3D.timeStamp);
-    if aedat.data.special.point3D == 0
+    if aedat.data.point3D.numEvents == 0
         aedat.data = rmfield(aedat.data, 'point3D');
+    end
+end
+if isfield(aedat.data, 'point4D')
+	aedat.data.point4D.numEvents = length(aedat.data.point4D.timeStamp);
+    if aedat.data.point4D.numEvents == 0
+        aedat.data = rmfield(aedat.data, 'point4D');
     end
 end

@@ -13,7 +13,11 @@ aedat = FindFirstAndLastTimeStamps(aedat);
 if isfield(aedat.info, 'firstTimeStamp')
     lowestTimeStamp = aedat.info.firstTimeStamp;
 else % Allow the comparison with the packettimestamp timestamps to take place. 
-    lowestTimeStamp = uint64(inf);    
+    if ~isfield(aedat.info, 'fileFormat') || aedat.info.fileFormat == 2
+        lowestTimeStamp = uint32(inf);    
+    else
+        lowestTimeStamp = uint64(inf);
+    end
 end
 
 if isfield(aedat.info, 'packetTimeStamps') ...
@@ -28,5 +32,5 @@ if isfield(aedat.info, 'packetTimeStamps') ...
 end
  
 if isfield(aedat, 'data')
-    aedat = OffsetTime(aedat, -lowestTimeStamp);
+    aedat = OffsetTime(aedat, -double(lowestTimeStamp) / 1e6);
 end
