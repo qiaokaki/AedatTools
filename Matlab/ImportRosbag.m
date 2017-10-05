@@ -240,5 +240,5 @@ end
 
 % Fill in standard info
 aedat = NumEventsByType(aedat);
-aedat = FindFirstAndlastTimeStamps(aedat);
+aedat = FindFirstAndLastTimeStamps(aedat);
 
