@@ -60,10 +60,10 @@ aedat.importParams.dataTypes = {'frame'};
 aedat.importParams.noData = true;
 
 % Working with a file where the source hasn't been declared - do this explicitly:
-input.source = 'Davis240c';
+aedat.source = 'Davis240c';
 
 % Invoke the function
-output = ImportAedat(input);
+aedat = ImportAedat(aedat);
 
 %{
 ImportAedat supports importation of a large file chunk by chunk. One way of
